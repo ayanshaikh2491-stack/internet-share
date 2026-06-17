@@ -1,29 +1,61 @@
 /**
- * Room Manager — manages room creation, pairing, and cleanup.
- * Rooms are stored in memory (Map). Auto-cleanup on timeout/disconnect.
- * Supports password, data limits, and time limits per room.
+ * Room Manager — multi-room per donor, multi-peer per room.
+ * Donor creates rooms. Multiple receivers can join each room.
+ * Data from donor broadcasts to all peers; peer data goes to donor only.
  */
 
-import { generateRoomId, generateRoomCode, message, ServerMessage, DEFAULT_ROOM_SETTINGS } from './protocol.js';
+import { generateRoomId, generateRoomCode, message, ServerMessage } from './protocol.js';
+
+let sidCounter = 0;
+function nextSid() { return `s${++sidCounter}`; }
 
 export class RoomManager {
   constructor(options = {}) {
     this.rooms = new Map();
-    this.codeIndex = new Map(); // code → roomId lookup
-    this.timeoutMs = options.timeoutMs ?? 30 * 60 * 1000; // 30 min default
-    this.onPairReady = options.onPairReady ?? null;
+    this.codeIndex = new Map();
+    this.socketRooms = new Map();  // sid → Set<roomId>
+    this.socketInfo = new Map();   // sid → { ws, ip }
+    this.timeoutMs = options.timeoutMs ?? 30 * 60 * 1000;
+    this.onPeerJoin = options.onPeerJoin ?? null;
+    this.onPeerLeave = options.onPeerLeave ?? null;
+    this.onOwnerDisconnect = options.onOwnerDisconnect ?? null;
   }
 
-  /**
-   * Create a new room with a sender
-   * @param {import('ws').WebSocket} senderWs
-   * @param {object} [settings]
-   * @param {string|null} [settings.password]
-   * @param {number|null} [settings.maxDataMB]
-   * @param {number|null} [settings.maxTimeMinutes]
-   * @returns {{ roomId: string, roomCode: string, config: object }}
-   */
-  createRoom(senderWs, settings = {}) {
+  registerSocket(ws, ip) {
+    const sid = nextSid();
+    ws._sid = sid;
+    ws._ownerRooms = new Set();
+    this.socketInfo.set(sid, { ws, ip });
+    this.socketRooms.set(sid, new Set());
+    return sid;
+  }
+
+  unregisterSocket(ws) {
+    const sid = ws._sid;
+    if (!sid) return;
+    // Close all rooms owned by this socket
+    if (ws._ownerRooms && ws._ownerRooms.size > 0) {
+      for (const roomId of [...ws._ownerRooms]) {
+        const room = this.rooms.get(roomId);
+        if (room && room.owner === ws) {
+          this._destroyRoom(room, 'Owner disconnected');
+        }
+      }
+    }
+    // Leave all rooms this socket is a peer in
+    const joinedRooms = this.socketRooms.get(sid);
+    if (joinedRooms) {
+      for (const roomId of [...joinedRooms]) {
+        this._removePeer(roomId, ws);
+      }
+    }
+    this.socketRooms.delete(sid);
+    this.socketInfo.delete(sid);
+    delete ws._sid;
+    delete ws._ownerRooms;
+  }
+
+  createRoom(ownerWs, settings = {}) {
     const roomId = generateRoomId();
     const roomCode = generateRoomCode();
     const config = {
@@ -35,278 +67,242 @@ export class RoomManager {
     const room = {
       id: roomId,
       code: roomCode,
-      sender: senderWs,
-      receiver: null,
+      owner: ownerWs,
+      ownerSid: ownerWs._sid,
+      config,
+      peers: new Map(),
       createdAt: Date.now(),
       lastActivity: Date.now(),
-      status: 'waiting',            // 'waiting' | 'paired' | 'closed'
-      config,                       // room settings (password, limits)
-      stats: {
-        bytesSent: 0,               // total bytes relayed
-        dataMBUsed: 0,              // converted to MB
-        duration: 0,                // paired duration in seconds
-        pairedAt: null,             // timestamp when pairing started
-      },
+      status: 'waiting',
+      stats: { bytesSent: 0, dataMBUsed: 0, duration: 0, activatedAt: null },
     };
 
     this.rooms.set(roomId, room);
     this.codeIndex.set(roomCode, roomId);
-
-    // Set up sender disconnect handler
-    senderWs._roomId = roomId;
-    senderWs._role = 'sender';
+    ownerWs._ownerRooms.add(roomId);
 
     return { roomId, roomCode, config };
   }
 
-  /**
-   * Join a room as receiver
-   * @param {string} roomCode
-   * @param {import('ws').WebSocket} receiverWs
-   * @param {object} [options]
-   * @param {string} [options.password]
-   * @returns {{ room: object | null, error: string | null, needPassword: boolean }}
-   */
-  joinRoom(roomCode, receiverWs, options = {}) {
+  joinRoom(roomCode, ws, options = {}) {
     const roomId = this.codeIndex.get(roomCode.toUpperCase());
-    if (!roomId) {
-      return { room: null, error: 'Room not found', needPassword: false };
-    }
+    if (!roomId) return { room: null, error: 'Room not found', needPassword: false };
 
     const room = this.rooms.get(roomId);
-    if (!room) {
-      this.codeIndex.delete(roomCode.toUpperCase());
-      return { room: null, error: 'Room expired', needPassword: false };
-    }
+    if (!room) { this.codeIndex.delete(roomCode.toUpperCase()); return { room: null, error: 'Room expired', needPassword: false }; }
+    if (room.status === 'closed') return { room: null, error: 'Room is closed', needPassword: false };
 
-    if (room.status === 'closed') {
-      return { room: null, error: 'Room is closed', needPassword: false };
-    }
-
-    if (room.receiver) {
-      return { room: null, error: 'Room is full', needPassword: false };
-    }
-
-    // Check password
     if (room.config.password) {
-      if (!options.password) {
-        return { room: null, error: 'Password required', needPassword: true };
-      }
-      if (options.password !== room.config.password) {
-        return { room: null, error: 'Incorrect password', needPassword: false };
-      }
+      if (!options.password) return { room: null, error: 'Password required', needPassword: true };
+      if (options.password !== room.config.password) return { room: null, error: 'Incorrect password', needPassword: false };
     }
 
-    // Check limits before joining
     if (room.config.maxDataMB !== null && room.stats.dataMBUsed >= room.config.maxDataMB) {
       return { room: null, error: 'Room data limit reached', needPassword: false };
     }
 
-    room.receiver = receiverWs;
-    room.status = 'paired';
+    const peerSid = ws._sid;
+    room.peers.set(peerSid, { ws, dataReceived: 0, connectedAt: Date.now() });
     room.lastActivity = Date.now();
-    room.stats.pairedAt = Date.now();
 
-    receiverWs._roomId = roomId;
-    receiverWs._role = 'receiver';
-
-    // Notify callback that pairing is ready
-    if (this.onPairReady) {
-      this.onPairReady(room);
+    if (room.status === 'waiting') {
+      room.status = 'active';
+      room.stats.activatedAt = Date.now();
     }
+
+    this.socketRooms.get(peerSid).add(roomId);
+
+    // Notify owner
+    if (room.owner && room.owner.readyState === 1) {
+      room.owner.send(message(ServerMessage.PEER_JOINED, {
+        roomCode: room.code,
+        peerCount: room.peers.size,
+        sid: peerSid,
+      }));
+    }
+
+    if (this.onPeerJoin) this.onPeerJoin(room, ws);
 
     return { room, error: null, needPassword: false };
   }
 
-  /**
-   * Leave a room
-   * @param {import('ws').WebSocket} ws
-   */
-  leaveRoom(ws) {
-    const roomId = ws._roomId;
-    if (!roomId) return;
-
+  _removePeer(roomId, ws) {
     const room = this.rooms.get(roomId);
     if (!room) return;
 
-    const role = ws._role;
-    const otherWs = role === 'sender' ? room.receiver : room.sender;
+    const sid = ws._sid;
+    const wasRemoved = room.peers.delete(sid);
+    this.socketRooms.get(sid)?.delete(roomId);
 
-    // Clean up
-    if (role === 'sender') {
-      room.sender = null;
-    } else {
-      room.receiver = null;
-    }
-
-    // Notify the other peer
-    if (otherWs && otherWs.readyState === 1) {
-      otherWs.send(message(ServerMessage.PEER_DISCONNECTED, {
-        reason: `${role === 'sender' ? 'Sender' : 'Receiver'} disconnected`,
+    if (wasRemoved && room.owner && room.owner.readyState === 1) {
+      room.owner.send(message(ServerMessage.PEER_LEFT, {
+        roomCode: room.code,
+        peerCount: room.peers.size,
+        sid,
       }));
     }
 
-    // If room is empty, remove it
-    if (!room.sender && !room.receiver) {
-      this.rooms.delete(roomId);
-      this.codeIndex.delete(room.code);
+    if (room.peers.size === 0 && (!room.owner || room.owner.readyState !== 1)) {
+      this._destroyRoom(room, 'All peers disconnected');
     }
 
-    delete ws._roomId;
-    delete ws._role;
-  }
-
-  /**
-   * Get room by WebSocket connection
-   */
-  getRoom(ws) {
-    const roomId = ws._roomId;
-    return roomId ? this.rooms.get(roomId) : null;
-  }
-
-  /**
-   * Get the other peer in a room
-   */
-  getPeer(ws) {
-    const room = this.getRoom(ws);
-    if (!room) return null;
-    return ws._role === 'sender' ? room.receiver : room.sender;
-  }
-
-  /**
-   * Track data usage. Returns false if limit exceeded.
-   * @param {import('ws').WebSocket} ws
-   * @param {number} bytes
-   * @returns {boolean} true if data is within limits, false if limit exceeded
-   */
-  trackData(ws, bytes) {
-    const room = this.getRoom(ws);
-    if (!room) return false;
-
-    room.stats.bytesSent += bytes;
-    room.stats.dataMBUsed = room.stats.bytesSent / (1024 * 1024);
+    if (this.onPeerLeave) this.onPeerLeave(room, ws);
     room.lastActivity = Date.now();
-
-    // Check data limit
-    if (room.config.maxDataMB !== null && room.stats.dataMBUsed >= room.config.maxDataMB) {
-      this._closeRoom(room, 'Data limit reached');
-      return false;
-    }
-
-    return true;
   }
 
-  /**
-   * Update room stats duration
-   */
+  leaveRoom(ws) {
+    const sid = ws._sid;
+    const joinedRooms = this.socketRooms.get(sid);
+    if (!joinedRooms) return;
+
+    for (const roomId of [...joinedRooms]) {
+      const room = this.rooms.get(roomId);
+      if (room && room.owner === ws) {
+        // Owner leaving: destroy the room
+        this._destroyRoom(room, 'Owner left');
+      } else {
+        this._removePeer(roomId, ws);
+      }
+    }
+  }
+
+  _destroyRoom(room, reason) {
+    room.status = 'closed';
+    const peers = [...room.peers.values()].filter(p => p.ws.readyState === 1);
+
+    for (const peer of peers) {
+      peer.ws.send(message(ServerMessage.OWNER_DISCONNECTED, { reason, roomCode: room.code }));
+      this.socketRooms.get(peer.ws._sid)?.delete(room.id);
+    }
+
+    if (room.owner && room.owner.readyState === 1) {
+      room.owner.send(message(ServerMessage.ROOM_LEFT, { roomCode: room.code, reason, closed: true }));
+    }
+
+    room.owner?._ownerRooms?.delete(room.id);
+    room.peers.clear();
+
+    setTimeout(() => {
+      this.rooms.delete(room.id);
+      this.codeIndex.delete(room.code);
+    }, 3000);
+  }
+
+  getRoom(ws) {
+    // If ws is an owner, return first room (for backwards compat)
+    const sid = ws._sid;
+    const joinedRooms = this.socketRooms.get(sid);
+    if (!joinedRooms || joinedRooms.size === 0) return null;
+    const roomId = joinedRooms.values().next().value;
+    return this.rooms.get(roomId) || null;
+  }
+
+  getOwner(ws) {
+    const room = this.getRoom(ws);
+    return room?.owner && room.owner.readyState === 1 ? room.owner : null;
+  }
+
+  getPeers(ws) {
+    const room = this.getRoom(ws);
+    if (!room) return [];
+    return [...room.peers.values()].filter(p => p.ws.readyState === 1).map(p => p.ws);
+  }
+
+  getOwnerRooms(ownerWs) {
+    const rooms = [];
+    for (const roomId of ownerWs._ownerRooms || []) {
+      const room = this.rooms.get(roomId);
+      if (room) rooms.push(room);
+    }
+    return rooms;
+  }
+
+  trackData(fromWs, bytes) {
+    const sid = fromWs._sid;
+    // Find which room this belongs to
+    // If sender is owner, relay to all peers; track total
+    for (const room of this.rooms.values()) {
+      if (room.owner === fromWs) {
+        room.stats.bytesSent += bytes;
+        room.stats.dataMBUsed = room.stats.bytesSent / (1024 * 1024);
+        room.lastActivity = Date.now();
+
+        if (room.config.maxDataMB !== null && room.stats.dataMBUsed >= room.config.maxDataMB) {
+          this._destroyRoom(room, 'Data limit reached');
+          return false;
+        }
+        return true;
+      }
+      if (room.peers.has(sid)) {
+        // Peer is sending to owner — just relay, don't track
+        return true;
+      }
+    }
+    return false;
+  }
+
   tickStats() {
     const now = Date.now();
     for (const room of this.rooms.values()) {
-      if (room.status === 'paired' && room.stats.pairedAt) {
-        room.stats.duration = Math.floor((now - room.stats.pairedAt) / 1000);
+      if (room.status === 'active' && room.stats.activatedAt) {
+        room.stats.duration = Math.floor((now - room.stats.activatedAt) / 1000);
 
-        // Check time limit
         if (room.config.maxTimeMinutes !== null) {
           const maxMs = room.config.maxTimeMinutes * 60 * 1000;
-          if (now - room.stats.pairedAt >= maxMs) {
-            this._closeRoom(room, 'Time limit reached');
+          if (now - room.stats.activatedAt >= maxMs) {
+            this._destroyRoom(room, 'Time limit reached');
+            continue;
           }
         }
 
-        // Send room update to both peers
         this._sendRoomUpdate(room);
       }
     }
   }
 
-  /**
-   * Send current room stats to both peers
-   */
   _sendRoomUpdate(room) {
     const update = message(ServerMessage.ROOM_UPDATE, {
+      roomCode: room.code,
       status: room.status,
       dataMBUsed: Math.round(room.stats.dataMBUsed * 100) / 100,
       duration: room.stats.duration,
+      peerCount: room.peers.size,
       maxDataMB: room.config.maxDataMB,
       maxTimeMinutes: room.config.maxTimeMinutes,
     });
 
-    const peers = [room.sender, room.receiver].filter(Boolean);
-    for (const ws of peers) {
-      if (ws.readyState === 1) {
-        ws.send(update);
+    // Send to owner
+    if (room.owner && room.owner.readyState === 1) {
+      room.owner.send(update);
+    }
+
+    // Send to all peers
+    for (const peer of room.peers.values()) {
+      if (peer.ws.readyState === 1) {
+        peer.ws.send(update);
       }
     }
   }
 
-  /**
-   * Close a room due to limit reached
-   */
-  _closeRoom(room, reason) {
-    room.status = 'closed';
-
-    const msg = message(ServerMessage.ROOM_LEFT, { reason, closed: true });
-    const peers = [room.sender, room.receiver].filter(Boolean);
-
-    for (const ws of peers) {
-      if (ws.readyState === 1) {
-        ws.send(msg);
-      }
-    }
-
-    // Clean up after a short delay
-    setTimeout(() => {
-      this.rooms.delete(room.id);
-      this.codeIndex.delete(room.code);
-    }, 5000);
-  }
-
-  /**
-   * Clean up stale rooms
-   */
   cleanup() {
     const now = Date.now();
     for (const [id, room] of this.rooms) {
       if (room.status === 'closed') continue;
       if (now - room.lastActivity > this.timeoutMs) {
-        this._destroyRoom(id);
+        this._destroyRoom(room, 'Room expired due to inactivity');
       }
     }
   }
 
-  /**
-   * Destroy a room completely
-   */
-  _destroyRoom(roomId) {
-    const room = this.rooms.get(roomId);
-    if (!room) return;
-
-    const msg = message(ServerMessage.ROOM_LEFT, { reason: 'Room expired due to inactivity' });
-    const peers = [room.sender, room.receiver].filter(Boolean);
-    for (const ws of peers) {
-      if (ws.readyState === 1) {
-        ws.send(msg);
-      }
-      delete ws._roomId;
-      delete ws._role;
-    }
-
-    this.rooms.delete(roomId);
-    this.codeIndex.delete(room.code);
-  }
-
-  /**
-   * Get stats
-   */
   getStats() {
-    let waiting = 0;
-    let paired = 0;
-    let closed = 0;
+    let waiting = 0, active = 0, closed = 0;
+    let totalPeers = 0;
     for (const room of this.rooms.values()) {
       if (room.status === 'waiting') waiting++;
-      if (room.status === 'paired') paired++;
+      if (room.status === 'active') active++;
       if (room.status === 'closed') closed++;
+      totalPeers += room.peers.size;
     }
-    return { total: this.rooms.size, waiting, paired, closed };
+    return { total: this.rooms.size, waiting, active, closed, totalPeers };
   }
 }

@@ -1,7 +1,7 @@
 /**
- * Relay — handles bidirectional traffic between paired peers.
- * Pipes binary and text data through the WebSocket tunnel.
- * Enforces data limits and tracks usage.
+ * Relay — handles multi-peer data relay for internet sharing.
+ * Donor sends → broadcast to all room peers.
+ * Peer sends → forward to donor only.
  */
 
 import { message, ServerMessage } from './protocol.js';
@@ -13,79 +13,50 @@ export class Relay {
     this.messagesRelayed = 0;
   }
 
-  /**
-   * Called when a new pair is connected
-   */
-  onPairReady(room) {
-    const { sender, receiver } = room;
-
-    // Notify sender
-    sender.send(message(ServerMessage.PEER_CONNECTED, {
-      role: 'sender',
-      maxDataMB: room.config.maxDataMB,
-      maxTimeMinutes: room.config.maxTimeMinutes,
-    }));
-
-    // Notify receiver with room info
-    receiver.send(message(ServerMessage.PEER_CONNECTED, {
-      role: 'receiver',
-      maxDataMB: room.config.maxDataMB,
-      maxTimeMinutes: room.config.maxTimeMinutes,
-      hasPassword: !!room.config.password,
-    }));
-
-    console.log(`[Relay] Room ${room.code} paired — sender ↔ receiver connected`);
-    if (room.config.maxDataMB) console.log(`[Relay]   Max data: ${room.config.maxDataMB}MB`);
-    if (room.config.maxTimeMinutes) console.log(`[Relay]   Max time: ${room.config.maxTimeMinutes}min`);
+  getOwnerRooms(ownerWs) {
+    return this.roomManager.getOwnerRooms(ownerWs);
   }
 
-  /**
-   * Handle incoming data from a client and relay to peer
-   * @param {import('ws').WebSocket} ws
-   * @param {string | Buffer} data
-   */
   relayData(ws, data) {
-    const peer = this.roomManager.getPeer(ws);
-    if (!peer) return;
-
-    if (peer.readyState !== 1) {
-      ws.send(message(ServerMessage.ERROR, { reason: 'Peer disconnected' }));
-      return;
-    }
-
+    const sid = ws._sid;
     const isBinary = data instanceof Buffer;
     const dataSize = isBinary ? data.length : Buffer.byteLength(data);
-    this.bytesRelayed += dataSize;
-    this.messagesRelayed++;
 
-    // Track data usage and enforce limits
+    // Track data usage
     const withinLimits = this.roomManager.trackData(ws, dataSize);
-    if (!withinLimits) {
-      ws.send(message(ServerMessage.ERROR, { reason: 'Data limit reached. Room closed.' }));
-      return;
-    }
+    if (!withinLimits) return;
 
-    // Relay the data to the peer
-    peer.send(data, { binary: isBinary });
+    // Find which room and determine where to send
+    for (const room of this.roomManager.rooms.values()) {
+      if (room.owner === ws) {
+        // Owner sending → broadcast to ALL peers
+        this.bytesRelayed += dataSize * room.peers.size;
+        this.messagesRelayed += room.peers.size;
+        for (const peer of room.peers.values()) {
+          if (peer.ws.readyState === 1) {
+            peer.dataReceived += dataSize;
+            peer.ws.send(data, { binary: isBinary });
+          }
+        }
+        return;
+      }
+      if (room.peers.has(sid)) {
+        // Peer sending → forward to owner only
+        this.bytesRelayed += dataSize;
+        this.messagesRelayed++;
+        if (room.owner && room.owner.readyState === 1) {
+          room.owner.send(data, { binary: isBinary });
+        }
+        return;
+      }
+    }
   }
 
-  /**
-   * Handle text messages (JSON protocol commands)
-   * @param {import('ws').WebSocket} ws
-   * @param {string} rawMessage
-   */
   handleMessage(ws, rawMessage) {
     let parsed;
-    try {
-      parsed = JSON.parse(rawMessage);
-    } catch {
+    try { parsed = JSON.parse(rawMessage); } catch {
       ws.send(message(ServerMessage.ERROR, { reason: 'Invalid JSON' }));
       return;
-    }
-
-    const room = this.roomManager.getRoom(ws);
-    if (room) {
-      room.lastActivity = Date.now();
     }
 
     switch (parsed.type) {
@@ -96,42 +67,48 @@ export class Relay {
           maxTimeMinutes: parsed.maxTimeMinutes || null,
         };
         const { roomId, roomCode, config } = this.roomManager.createRoom(ws, settings);
-        ws.send(message(ServerMessage.ROOM_CREATED, {
-          roomId,
-          roomCode,
-          config,
-        }));
-        console.log(`[Room] Created — code: ${roomCode}, id: ${roomId.slice(0, 8)}...`);
-        if (config.password) console.log(`[Room]   Password protected`);
-        if (config.maxDataMB) console.log(`[Room]   Data limit: ${config.maxDataMB}MB`);
-        if (config.maxTimeMinutes) console.log(`[Room]   Time limit: ${config.maxTimeMinutes}min`);
+        ws.send(message(ServerMessage.ROOM_CREATED, { roomId, roomCode, config }));
+        console.log(`[Room] Created — code: ${roomCode}`);
         break;
       }
 
       case 'join_room': {
-        const options = {
-          password: parsed.password || null,
-        };
-        const { room, error, needPassword } = this.roomManager.joinRoom(
-          parsed.roomCode, ws, options
-        );
-
+        const { room, error, needPassword } = this.roomManager.joinRoom(parsed.roomCode, ws, { password: parsed.password });
         if (error) {
-          if (needPassword) {
-            ws.send(message(ServerMessage.ERROR, { reason: error, needPassword: true }));
-          } else {
-            ws.send(message(ServerMessage.ERROR, { reason: error }));
-          }
+          ws.send(message(ServerMessage.ERROR, { reason: error, ...(needPassword ? { needPassword: true } : {}) }));
           break;
         }
-
         ws.send(message(ServerMessage.ROOM_JOINED, {
-          roomId: room.id,
-          roomCode: room.code,
-          role: 'receiver',
-          config: room.config,
+          roomId: room.id, roomCode: room.code, role: 'receiver', config: room.config,
         }));
-        console.log(`[Room] Joined — code: ${room.code}, id: ${room.id.slice(0, 8)}...`);
+        console.log(`[Room] Joined — code: ${room.code}`);
+        break;
+      }
+
+      case 'get_rooms': {
+        const rooms = this.getOwnerRooms(ws).map(r => ({
+          code: r.code, status: r.status, peerCount: r.peers.size,
+          dataMBUsed: Math.round(r.stats.dataMBUsed * 100) / 100,
+          duration: r.stats.duration,
+          config: r.config,
+        }));
+        ws.send(message(ServerMessage.ROOM_LIST, { rooms }));
+        break;
+      }
+
+      case 'get_peers': {
+        const roomId = parsed.roomId;
+        const room = this.roomManager.rooms.get(roomId);
+        if (!room || room.owner !== ws) {
+          ws.send(message(ServerMessage.ERROR, { reason: 'Room not found' }));
+          break;
+        }
+        const peers = [...room.peers.values()].map(p => ({
+          sid: p.ws._sid,
+          dataReceived: Math.round((p.dataReceived / (1024 * 1024)) * 100) / 100,
+          connectedAt: p.connectedAt,
+        }));
+        ws.send(message(ServerMessage.PEER_LIST, { roomCode: room.code, peers }));
         break;
       }
 
@@ -139,34 +116,29 @@ export class Relay {
         ws.send(message(ServerMessage.PONG, { ts: Date.now() }));
         break;
 
-      case 'leave_room':
+      case 'leave_room': {
+        this.roomManager.leaveRoom(ws);
+        ws.send(message(ServerMessage.ROOM_LEFT, { reason: 'Left room' }));
+        break;
+      }
+
+      case 'leave_all':
         this.roomManager.leaveRoom(ws);
         break;
 
       case 'data':
-        // JSON-wrapped data (for text-based proxy requests)
         this.relayData(ws, rawMessage);
         break;
 
       default:
-        ws.send(message(ServerMessage.ERROR, {
-          reason: `Unknown message type: ${parsed.type}`,
-        }));
-        break;
+        ws.send(message(ServerMessage.ERROR, { reason: `Unknown type: ${parsed.type}` }));
     }
   }
 
-  /**
-   * Handle WebSocket connection close
-   * @param {import('ws').WebSocket} ws
-   */
   handleDisconnect(ws) {
-    this.roomManager.leaveRoom(ws);
+    this.roomManager.unregisterSocket(ws);
   }
 
-  /**
-   * Get relay statistics
-   */
   getStats() {
     return {
       bytesRelayed: this.bytesRelayed,

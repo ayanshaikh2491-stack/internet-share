@@ -71,14 +71,13 @@ const wss = new WebSocketServer({ noServer: true });
 wss.on('connection', (ws, req) => {
   const ip = req.socket.remoteAddress;
   console.log(`[WS] New connection from ${ip}`);
+  roomManager.registerSocket(ws, ip);
 
   // Handle text messages (protocol commands)
   ws.on('message', (data, isBinary) => {
     if (isBinary) {
-      // Binary data — relay directly to peer
       relay.relayData(ws, data);
     } else {
-      // Text — parse as JSON protocol message
       relay.handleMessage(ws, data.toString());
     }
   });
