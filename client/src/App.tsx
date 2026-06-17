@@ -27,7 +27,6 @@ const Plus = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stro
 const KeyIcon = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/></svg>;
 const LockIcon = () => <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>;
 const StopIcon = () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5.25 7.5A2.25 2.25 0 017.5 5.25h9a2.25 2.25 0 012.25 2.25v9a2.25 2.25 0 01-2.25 2.25h-9a2.25 2.25 0 01-2.25-2.25v-9z"/></svg>;
-const WifiIcon = () => <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.746-5.747 15.06-5.747 20.808 0"/></svg>;
 const MailIcon = () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>;
 
 // ─── Stripe Status Badge ─────────────────────────────────────────────────────
@@ -60,6 +59,8 @@ const AuthScreen = ({ onAuth }: { onAuth: () => void }) => {
   const handleSubmit = async () => {
     setError(null);
     if (!email.trim() || !password) { setError('Please fill in all fields'); return; }
+    if (mode === 'signup' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setError('Please enter a valid email address'); return; }
+    if (password.length < 4) { setError('Password must be at least 4 characters'); return; }
     setLoading(true);
     const fn = mode === 'login' ? auth.login.bind(auth) : auth.register.bind(auth);
     const result = await fn(email.trim(), password);
@@ -71,69 +72,129 @@ const AuthScreen = ({ onAuth }: { onAuth: () => void }) => {
 
   if (success) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen" style={{ background: '#f6f9fc' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#f6f9fc' }}>
         <div className="w-full max-w-sm px-6 py-12 text-center">
           <div className="w-16 h-16 mx-auto mb-5 flex items-center justify-center rounded-full" style={{ background: S.greenBg }}>
             <span className="text-3xl" style={{ color: S.greenText }}>✓</span>
           </div>
           <h2 className="text-[26px] font-light mb-1" style={{ color: S.navy, fontFamily: "'Source Sans 3'", letterSpacing: '-0.26px' }}>Account created</h2>
           <p className="text-[14px] mb-6" style={{ color: S.body, fontFamily: "'Source Sans 3'", fontWeight: 300 }}>
-            {email} — check your email for confirmation (or just sign in below)
+            {email} — welcome to ShareNet!
           </p>
           <button onClick={() => { setSuccess(false); setMode('login'); }}
             className="w-full py-2.5 text-[14px] font-normal text-white"
-            style={{ borderRadius: '4px', background: S.purple }}>Sign in</button>
+            style={{ borderRadius: '4px', background: S.purple, fontFamily: "'Source Sans 3'" }}>Sign in to your account</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen" style={{ background: '#f6f9fc' }}>
-      <div className="w-full max-w-sm px-6 py-12">
-        {/* Logo */}
-        <div className="w-14 h-14 mx-auto mb-6 flex items-center justify-center rounded" style={{ background: S.purpleBg, border: `1px solid ${S.purpleSoft}` }}>
-          <WifiIcon />
-        </div>
-        <h1 className="text-[32px] font-light text-center mb-1" style={{ color: S.navy, fontFamily: "'Source Sans 3'", letterSpacing: '-0.64px' }}>ShareNet</h1>
-        <p className="text-[16px] text-center mb-8" style={{ color: S.body, fontFamily: "'Source Sans 3'", fontWeight: 300 }}>
-          {mode === 'login' ? 'Sign in to your account' : 'Create a new account'}
-        </p>
+    <div className="min-h-screen flex" style={{ background: S.white }}>
+      {/* ─── Left: Branding Panel ─── */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden items-center justify-center p-12"
+        style={{ background: 'linear-gradient(160deg, #1c1e54 0%, #0d253d 50%, #061b31 100%)' }}>
+        {/* Decorative purple glow */}
+        <div className="absolute top-[-100px] left-[-100px] w-[400px] h-[400px] rounded-full opacity-[0.12]" style={{ background: S.purple, filter: 'blur(100px)' }} />
+        <div className="absolute bottom-[-60px] right-[-60px] w-[250px] h-[250px] rounded-full opacity-[0.08]" style={{ background: S.magenta, filter: 'blur(80px)' }} />
+        {/* Grid pattern overlay */}
+        <div className="absolute inset-0 opacity-[0.03]"
+          style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
 
-        {error && <div className="mb-5 p-3 rounded text-[12px]" style={{ background: 'rgba(234,34,97,0.05)', border: '1px solid rgba(234,34,97,0.15)', color: S.ruby, borderRadius: '4px', fontFamily: "'Source Sans 3'", fontWeight: 400 }}>{error}</div>}
+        <div className="relative z-10 text-center max-w-sm">
+          {/* Brand icon */}
+          <div className="w-16 h-16 mx-auto mb-6 flex items-center justify-center rounded-md" style={{ background: 'rgba(83,58,253,0.2)', border: '1px solid rgba(83,58,253,0.3)' }}>
+            <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.746-5.747 15.06-5.747 20.808 0"/>
+            </svg>
+          </div>
+          <h1 className="text-[40px] font-light text-white mb-4" style={{ fontFamily: "'Source Sans 3'", letterSpacing: '-0.8px', lineHeight: '1.15' }}>
+            ShareNet
+          </h1>
+          <p className="text-[16px] mb-8" style={{ color: 'rgba(255,255,255,0.65)', fontFamily: "'Source Sans 3'", fontWeight: 300, lineHeight: '1.5' }}>
+            Share your internet bandwidth. Receive from others. Peer-to-peer relay made simple.
+          </p>
 
-        <div className="space-y-5">
-          <div>
-            <p className="text-[11px] font-medium mb-1.5" style={{ color: S.label, fontFamily: "'Source Sans 3'" }}>Email</p>
-            <div className="flex items-center border px-3 py-2.5 gap-2" style={{ borderColor: S.border, borderRadius: '4px', background: S.white }}>
-              <MailIcon />
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com"
-                className="w-full text-[14px] bg-transparent text-[#061b31] placeholder:text-[#64748d] focus:outline-none"
-                style={{ fontFamily: "'Source Sans 3'", fontWeight: 300 }}
-                onKeyDown={e => e.key === 'Enter' && handleSubmit()} />
+          {/* Trust badges */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 py-2.5 px-4 rounded" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <span className="text-white text-[14px]">🔒</span>
+              <span className="text-[13px] text-left" style={{ color: 'rgba(255,255,255,0.7)', fontFamily: "'Source Sans 3'", fontWeight: 300 }}>Encrypted relay — your data stays private</span>
+            </div>
+            <div className="flex items-center gap-3 py-2.5 px-4 rounded" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <span className="text-white text-[14px]">⚡</span>
+              <span className="text-[13px] text-left" style={{ color: 'rgba(255,255,255,0.7)', fontFamily: "'Source Sans 3'", fontWeight: 300 }}>Real-time — instant room creation &amp; pairing</span>
+            </div>
+            <div className="flex items-center gap-3 py-2.5 px-4 rounded" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <span className="text-white text-[14px]">🌐</span>
+              <span className="text-[13px] text-left" style={{ color: 'rgba(255,255,255,0.7)', fontFamily: "'Source Sans 3'", fontWeight: 300 }}>Multi-room — create &amp; manage multiple rooms</span>
             </div>
           </div>
-          <div>
-            <p className="text-[11px] font-medium mb-1.5" style={{ color: S.label, fontFamily: "'Source Sans 3'" }}>Password</p>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Min 4 characters"
-              className="w-full px-3 py-2.5 text-[14px] bg-white border text-[#061b31] placeholder:text-[#64748d] focus:outline-none"
-              style={{ borderColor: S.border, borderRadius: '4px', fontFamily: "'Source Sans 3'", fontWeight: 300 }}
-              onKeyDown={e => e.key === 'Enter' && handleSubmit()} />
-          </div>
-          <button onClick={handleSubmit} disabled={loading}
-            className="w-full py-2.5 text-[14px] font-normal text-white disabled:opacity-50"
-            style={{ borderRadius: '4px', background: S.purple }}>
-            {loading ? 'Please wait…' : (mode === 'login' ? 'Sign In' : 'Create Account')}
-          </button>
         </div>
+      </div>
 
-        <p className="mt-6 text-center text-[14px]" style={{ color: S.body, fontFamily: "'Source Sans 3'", fontWeight: 300 }}>
-          {mode === 'login' ? (
-            <>No account? <button onClick={() => { setMode('signup'); setError(null); }} className="font-medium" style={{ color: S.purple }}>Sign up</button></>
-          ) : (
-            <>Already have one? <button onClick={() => { setMode('login'); setError(null); }} className="font-medium" style={{ color: S.purple }}>Sign in</button></>
+      {/* ─── Right: Form Panel ─── */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 lg:p-12">
+        <div className="w-full max-w-sm">
+          {/* Mobile logo (hidden on desktop) */}
+          <div className="lg:hidden text-center mb-8">
+            <div className="w-12 h-12 mx-auto mb-3 flex items-center justify-center rounded-md" style={{ background: S.purple }}>
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.746-5.747 15.06-5.747 20.808 0"/>
+              </svg>
+            </div>
+            <h1 className="text-[28px] font-light" style={{ color: S.navy, fontFamily: "'Source Sans 3'", letterSpacing: '-0.56px' }}>ShareNet</h1>
+          </div>
+
+          <h2 className="text-[26px] font-light mb-1" style={{ color: S.navy, fontFamily: "'Source Sans 3'", letterSpacing: '-0.26px' }}>
+            {mode === 'login' ? 'Welcome back' : 'Create account'}
+          </h2>
+          <p className="text-[14px] mb-8" style={{ color: S.body, fontFamily: "'Source Sans 3'", fontWeight: 300 }}>
+            {mode === 'login' ? 'Sign in to your account to continue' : 'Start sharing internet in minutes'}
+          </p>
+
+          {error && (
+            <div className="mb-6 p-3 rounded text-[12px]" style={{ background: 'rgba(234,34,97,0.05)', border: '1px solid rgba(234,34,97,0.15)', color: S.ruby, borderRadius: '4px', fontFamily: "'Source Sans 3'", fontWeight: 400 }}>
+              {error}
+            </div>
           )}
-        </p>
+
+          <div className="space-y-5">
+            <div>
+              <label className="block text-[11px] font-medium mb-1.5" style={{ color: S.label, fontFamily: "'Source Sans 3'" }}>Email address</label>
+              <div className="flex items-center border px-3 py-2.5 gap-2 transition-all" style={{ borderColor: error?.includes('email') ? S.ruby : S.border, borderRadius: '4px', background: S.white }}>
+                <MailIcon />
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com"
+                  className="w-full text-[14px] bg-transparent text-[#061b31] placeholder:text-[#64748d] focus:outline-none"
+                  style={{ fontFamily: "'Source Sans 3'", fontWeight: 300 }}
+                  onKeyDown={e => e.key === 'Enter' && handleSubmit()} />
+              </div>
+            </div>
+            <div>
+              <label className="block text-[11px] font-medium mb-1.5" style={{ color: S.label, fontFamily: "'Source Sans 3'" }}>Password</label>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Min 4 characters"
+                className="w-full px-3 py-2.5 text-[14px] bg-white border text-[#061b31] placeholder:text-[#64748d] focus:outline-none transition-all"
+                style={{ borderColor: error?.includes('Password') ? S.ruby : S.border, borderRadius: '4px', fontFamily: "'Source Sans 3'", fontWeight: 300 }}
+                onKeyDown={e => e.key === 'Enter' && handleSubmit()} />
+            </div>
+
+            <button onClick={handleSubmit} disabled={loading}
+              className="w-full py-2.5 text-[14px] font-normal text-white disabled:opacity-50 transition-all hover:opacity-90"
+              style={{ borderRadius: '4px', background: S.purple, fontFamily: "'Source Sans 3'" }}>
+              {loading ? 'Please wait…' : (mode === 'login' ? 'Sign In' : 'Create Account')}
+            </button>
+          </div>
+
+          <div className="mt-6 pt-6 text-center" style={{ borderTop: `1px solid ${S.border}` }}>
+            <p className="text-[14px]" style={{ color: S.body, fontFamily: "'Source Sans 3'", fontWeight: 300 }}>
+              {mode === 'login' ? (
+                <>No account? <button onClick={() => { setMode('signup'); setError(null); }} className="font-medium" style={{ color: S.purple }}>Sign up for free</button></>
+              ) : (
+                <>Already have one? <button onClick={() => { setMode('login'); setError(null); }} className="font-medium" style={{ color: S.purple }}>Sign in</button></>
+              )}
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -11,17 +11,23 @@ import dotenv from 'dotenv';
 dotenv.config();
 import express from 'express';
 import { WebSocketServer } from 'ws';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import { RoomManager } from './room-manager.js';
 import { Relay } from './relay.js';
 import { UserManager } from './user-manager.js';
-import { message, ServerMessage, ClientMessage } from './protocol.js';
 
-// ─── Config ────────────────────────────────────────────────────────────────
-const PORT = parseInt(process.env.PORT || '3001', 10);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Ensure data directory exists
+const DATA_DIR = path.join(__dirname, '..', 'data');
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+
+const PORT = process.env.PORT || 3001;
+
+const userManager = new UserManager(path.join(DATA_DIR, 'users.db'));
 const ROOM_TIMEOUT = parseInt(process.env.ROOM_TIMEOUT || '1800000', 10); // 30 min
-
-// ─── User Manager ───────────────────────────────────────────────────────────
-const userManager = new UserManager();
 
 // ─── Express (HTTP API) ────────────────────────────────────────────────────
 const app = express();
