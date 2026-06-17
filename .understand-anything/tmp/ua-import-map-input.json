@@ -1,0 +1,205 @@
+{
+  "projectRoot": "/c/Users/TAUSHEF/Documents/demon",
+  "files": [
+    {
+      "path": ".understand-anything/tmp/ua-scan-files.json",
+      "language": "json",
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/.env.example",
+      "language": "config",
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/eslint.config.js",
+      "language": "javascript",
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/index.html",
+      "language": "html",
+      "fileCategory": "markup"
+    },
+    {
+      "path": "client/package.json",
+      "language": "json",
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/README.md",
+      "language": "markdown",
+      "fileCategory": "docs"
+    },
+    {
+      "path": "client/src/App.tsx",
+      "language": "typescript",
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/index.css",
+      "language": "css",
+      "fileCategory": "markup"
+    },
+    {
+      "path": "client/src/main.tsx",
+      "language": "typescript",
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/src/services/tunnel.ts",
+      "language": "typescript",
+      "fileCategory": "code"
+    },
+    {
+      "path": "client/tsconfig.app.json",
+      "language": "json",
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/tsconfig.json",
+      "language": "json",
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/tsconfig.node.json",
+      "language": "json",
+      "fileCategory": "config"
+    },
+    {
+      "path": "client/vite.config.ts",
+      "language": "typescript",
+      "fileCategory": "code"
+    },
+    {
+      "path": "internet_share/.metadata",
+      "language": "unknown",
+      "fileCategory": "code"
+    },
+    {
+      "path": "internet_share/analysis_options.yaml",
+      "language": "yaml",
+      "fileCategory": "config"
+    },
+    {
+      "path": "internet_share/android/app/build.gradle",
+      "language": "gradle",
+      "fileCategory": "config"
+    },
+    {
+      "path": "internet_share/android/app/src/debug/AndroidManifest.xml",
+      "language": "xml",
+      "fileCategory": "config"
+    },
+    {
+      "path": "internet_share/android/app/src/main/AndroidManifest.xml",
+      "language": "xml",
+      "fileCategory": "config"
+    },
+    {
+      "path": "internet_share/android/app/src/main/kotlin/com/internetsare/internet_share/MainActivity.kt",
+      "language": "kotlin",
+      "fileCategory": "code"
+    },
+    {
+      "path": "internet_share/android/app/src/main/res/drawable-v21/launch_background.xml",
+      "language": "xml",
+      "fileCategory": "config"
+    },
+    {
+      "path": "internet_share/android/app/src/main/res/drawable/launch_background.xml",
+      "language": "xml",
+      "fileCategory": "config"
+    },
+    {
+      "path": "internet_share/android/app/src/main/res/values-night/styles.xml",
+      "language": "xml",
+      "fileCategory": "config"
+    },
+    {
+      "path": "internet_share/android/app/src/main/res/values/styles.xml",
+      "language": "xml",
+      "fileCategory": "config"
+    },
+    {
+      "path": "internet_share/android/app/src/profile/AndroidManifest.xml",
+      "language": "xml",
+      "fileCategory": "config"
+    },
+    {
+      "path": "internet_share/android/build.gradle",
+      "language": "gradle",
+      "fileCategory": "config"
+    },
+    {
+      "path": "internet_share/android/gradle.properties",
+      "language": "properties",
+      "fileCategory": "config"
+    },
+    {
+      "path": "internet_share/android/gradle/wrapper/gradle-wrapper.properties",
+      "language": "properties",
+      "fileCategory": "config"
+    },
+    {
+      "path": "internet_share/android/settings.gradle",
+      "language": "gradle",
+      "fileCategory": "config"
+    },
+    {
+      "path": "internet_share/lib/main.dart",
+      "language": "dart",
+      "fileCategory": "code"
+    },
+    {
+      "path": "internet_share/pubspec.yaml",
+      "language": "yaml",
+      "fileCategory": "config"
+    },
+    {
+      "path": "internet_share/README.md",
+      "language": "markdown",
+      "fileCategory": "docs"
+    },
+    {
+      "path": "internet_share/test/widget_test.dart",
+      "language": "dart",
+      "fileCategory": "code"
+    },
+    {
+      "path": "README.md",
+      "language": "markdown",
+      "fileCategory": "docs"
+    },
+    {
+      "path": "server/.env.example",
+      "language": "config",
+      "fileCategory": "config"
+    },
+    {
+      "path": "server/package.json",
+      "language": "json",
+      "fileCategory": "config"
+    },
+    {
+      "path": "server/src/protocol.js",
+      "language": "javascript",
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/relay.js",
+      "language": "javascript",
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/room-manager.js",
+      "language": "javascript",
+      "fileCategory": "code"
+    },
+    {
+      "path": "server/src/server.js",
+      "language": "javascript",
+      "fileCategory": "code"
+    }
+  ]
+}

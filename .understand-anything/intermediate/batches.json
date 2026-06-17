@@ -1,0 +1,355 @@
+{
+  "schemaVersion": 1,
+  "algorithm": "louvain",
+  "totalFiles": 40,
+  "totalBatches": 5,
+  "exportsByPath": {
+    "client/eslint.config.js": [],
+    "client/src/App.tsx": [],
+    "client/src/main.tsx": [],
+    "client/src/services/tunnel.ts": [
+      "TunnelClient"
+    ],
+    "client/vite.config.ts": [],
+    "internet_share/.metadata": [],
+    "internet_share/android/app/src/main/kotlin/com/internetsare/internet_share/MainActivity.kt": [],
+    "internet_share/lib/main.dart": [],
+    "internet_share/test/widget_test.dart": [],
+    "server/src/protocol.js": [
+      "ClientMessage",
+      "ServerMessage",
+      "generateRoomCode",
+      "generateRoomId",
+      "message"
+    ],
+    "server/src/relay.js": [
+      "Relay"
+    ],
+    "server/src/room-manager.js": [
+      "RoomManager"
+    ],
+    "server/src/server.js": []
+  },
+  "batches": [
+    {
+      "batchIndex": 1,
+      "files": [
+        {
+          "path": "client/.env.example",
+          "language": "config",
+          "sizeLines": 1,
+          "fileCategory": "config"
+        },
+        {
+          "path": "client/README.md",
+          "language": "markdown",
+          "sizeLines": 73,
+          "fileCategory": "docs"
+        },
+        {
+          "path": "client/index.html",
+          "language": "html",
+          "sizeLines": 13,
+          "fileCategory": "markup"
+        },
+        {
+          "path": "client/package.json",
+          "language": "json",
+          "sizeLines": 32,
+          "fileCategory": "config"
+        },
+        {
+          "path": "client/tsconfig.app.json",
+          "language": "json",
+          "sizeLines": 25,
+          "fileCategory": "config"
+        },
+        {
+          "path": "client/tsconfig.json",
+          "language": "json",
+          "sizeLines": 7,
+          "fileCategory": "config"
+        },
+        {
+          "path": "client/tsconfig.node.json",
+          "language": "json",
+          "sizeLines": 24,
+          "fileCategory": "config"
+        }
+      ],
+      "batchImportData": {
+        "client/.env.example": [],
+        "client/README.md": [],
+        "client/index.html": [],
+        "client/package.json": [],
+        "client/tsconfig.app.json": [],
+        "client/tsconfig.json": [],
+        "client/tsconfig.node.json": []
+      },
+      "neighborMap": {}
+    },
+    {
+      "batchIndex": 2,
+      "files": [
+        {
+          "path": "internet_share/README.md",
+          "language": "markdown",
+          "sizeLines": 16,
+          "fileCategory": "docs"
+        },
+        {
+          "path": "internet_share/analysis_options.yaml",
+          "language": "yaml",
+          "sizeLines": 28,
+          "fileCategory": "config"
+        },
+        {
+          "path": "internet_share/pubspec.yaml",
+          "language": "yaml",
+          "sizeLines": 89,
+          "fileCategory": "config"
+        }
+      ],
+      "batchImportData": {
+        "internet_share/README.md": [],
+        "internet_share/analysis_options.yaml": [],
+        "internet_share/pubspec.yaml": []
+      },
+      "neighborMap": {}
+    },
+    {
+      "batchIndex": 3,
+      "files": [
+        {
+          "path": "internet_share/android/build.gradle",
+          "language": "gradle",
+          "sizeLines": 18,
+          "fileCategory": "config"
+        },
+        {
+          "path": "internet_share/android/gradle.properties",
+          "language": "properties",
+          "sizeLines": 3,
+          "fileCategory": "config"
+        },
+        {
+          "path": "internet_share/android/settings.gradle",
+          "language": "gradle",
+          "sizeLines": 25,
+          "fileCategory": "config"
+        }
+      ],
+      "batchImportData": {
+        "internet_share/android/build.gradle": [],
+        "internet_share/android/gradle.properties": [],
+        "internet_share/android/settings.gradle": []
+      },
+      "neighborMap": {}
+    },
+    {
+      "batchIndex": 4,
+      "files": [
+        {
+          "path": ".understand-anything/tmp/ua-scan-files.json",
+          "language": "json",
+          "sizeLines": 266,
+          "fileCategory": "config"
+        },
+        {
+          "path": "client/eslint.config.js",
+          "language": "javascript",
+          "sizeLines": 22,
+          "fileCategory": "code"
+        },
+        {
+          "path": "client/src/App.tsx",
+          "language": "typescript",
+          "sizeLines": 408,
+          "fileCategory": "code"
+        },
+        {
+          "path": "client/src/index.css",
+          "language": "css",
+          "sizeLines": 34,
+          "fileCategory": "markup"
+        },
+        {
+          "path": "client/src/main.tsx",
+          "language": "typescript",
+          "sizeLines": 10,
+          "fileCategory": "code"
+        },
+        {
+          "path": "client/src/services/tunnel.ts",
+          "language": "typescript",
+          "sizeLines": 110,
+          "fileCategory": "code"
+        },
+        {
+          "path": "client/vite.config.ts",
+          "language": "typescript",
+          "sizeLines": 8,
+          "fileCategory": "code"
+        },
+        {
+          "path": "internet_share/.metadata",
+          "language": "unknown",
+          "sizeLines": 30,
+          "fileCategory": "code"
+        },
+        {
+          "path": "internet_share/android/app/build.gradle",
+          "language": "gradle",
+          "sizeLines": 44,
+          "fileCategory": "config"
+        },
+        {
+          "path": "internet_share/android/app/src/debug/AndroidManifest.xml",
+          "language": "xml",
+          "sizeLines": 7,
+          "fileCategory": "config"
+        },
+        {
+          "path": "internet_share/android/app/src/main/AndroidManifest.xml",
+          "language": "xml",
+          "sizeLines": 45,
+          "fileCategory": "config"
+        },
+        {
+          "path": "internet_share/android/app/src/main/kotlin/com/internetsare/internet_share/MainActivity.kt",
+          "language": "kotlin",
+          "sizeLines": 5,
+          "fileCategory": "code"
+        },
+        {
+          "path": "internet_share/android/app/src/main/res/drawable-v21/launch_background.xml",
+          "language": "xml",
+          "sizeLines": 12,
+          "fileCategory": "config"
+        },
+        {
+          "path": "internet_share/android/app/src/main/res/drawable/launch_background.xml",
+          "language": "xml",
+          "sizeLines": 12,
+          "fileCategory": "config"
+        },
+        {
+          "path": "internet_share/android/app/src/main/res/values-night/styles.xml",
+          "language": "xml",
+          "sizeLines": 18,
+          "fileCategory": "config"
+        },
+        {
+          "path": "internet_share/android/app/src/main/res/values/styles.xml",
+          "language": "xml",
+          "sizeLines": 18,
+          "fileCategory": "config"
+        },
+        {
+          "path": "internet_share/android/app/src/profile/AndroidManifest.xml",
+          "language": "xml",
+          "sizeLines": 7,
+          "fileCategory": "config"
+        },
+        {
+          "path": "internet_share/android/gradle/wrapper/gradle-wrapper.properties",
+          "language": "properties",
+          "sizeLines": 5,
+          "fileCategory": "config"
+        },
+        {
+          "path": "internet_share/lib/main.dart",
+          "language": "dart",
+          "sizeLines": 125,
+          "fileCategory": "code"
+        },
+        {
+          "path": "internet_share/test/widget_test.dart",
+          "language": "dart",
+          "sizeLines": 30,
+          "fileCategory": "code"
+        },
+        {
+          "path": "README.md",
+          "language": "markdown",
+          "sizeLines": 75,
+          "fileCategory": "docs"
+        },
+        {
+          "path": "server/.env.example",
+          "language": "config",
+          "sizeLines": 3,
+          "fileCategory": "config"
+        },
+        {
+          "path": "server/package.json",
+          "language": "json",
+          "sizeLines": 19,
+          "fileCategory": "config"
+        },
+        {
+          "path": "server/src/protocol.js",
+          "language": "javascript",
+          "sizeLines": 55,
+          "fileCategory": "code"
+        },
+        {
+          "path": "server/src/relay.js",
+          "language": "javascript",
+          "sizeLines": 136,
+          "fileCategory": "code"
+        }
+      ],
+      "batchImportData": {
+        ".understand-anything/tmp/ua-scan-files.json": [],
+        "client/eslint.config.js": [],
+        "client/src/App.tsx": [],
+        "client/src/index.css": [],
+        "client/src/main.tsx": [],
+        "client/src/services/tunnel.ts": [],
+        "client/vite.config.ts": [],
+        "internet_share/.metadata": [],
+        "internet_share/android/app/build.gradle": [],
+        "internet_share/android/app/src/debug/AndroidManifest.xml": [],
+        "internet_share/android/app/src/main/AndroidManifest.xml": [],
+        "internet_share/android/app/src/main/kotlin/com/internetsare/internet_share/MainActivity.kt": [],
+        "internet_share/android/app/src/main/res/drawable-v21/launch_background.xml": [],
+        "internet_share/android/app/src/main/res/drawable/launch_background.xml": [],
+        "internet_share/android/app/src/main/res/values-night/styles.xml": [],
+        "internet_share/android/app/src/main/res/values/styles.xml": [],
+        "internet_share/android/app/src/profile/AndroidManifest.xml": [],
+        "internet_share/android/gradle/wrapper/gradle-wrapper.properties": [],
+        "internet_share/lib/main.dart": [],
+        "internet_share/test/widget_test.dart": [],
+        "README.md": [],
+        "server/.env.example": [],
+        "server/package.json": [],
+        "server/src/protocol.js": [],
+        "server/src/relay.js": []
+      },
+      "neighborMap": {}
+    },
+    {
+      "batchIndex": 5,
+      "files": [
+        {
+          "path": "server/src/room-manager.js",
+          "language": "javascript",
+          "sizeLines": 184,
+          "fileCategory": "code"
+        },
+        {
+          "path": "server/src/server.js",
+          "language": "javascript",
+          "sizeLines": 96,
+          "fileCategory": "code"
+        }
+      ],
+      "batchImportData": {
+        "server/src/room-manager.js": [],
+        "server/src/server.js": []
+      },
+      "neighborMap": {}
+    }
+  ]
+}
