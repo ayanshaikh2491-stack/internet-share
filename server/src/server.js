@@ -35,6 +35,24 @@ app.get('/stats', (req, res) => {
   res.json(relay.getStats());
 });
 
+// ─── Self-Keepalive ─────────────────────────────────────────────────────────
+// Pings the server's own public URL every 10 minutes to prevent
+// Render free tier from spinning down after 15 min of inactivity.
+const SELF_URL = process.env.RENDER_EXTERNAL_URL || process.env.SELF_URL || 'https://internet-share-relay.onrender.com';
+const KEEPALIVE_INTERVAL = 10 * 60 * 1000; // 10 minutes
+
+function startKeepalive() {
+  console.log(`[Keepalive] Starting self-ping every 10min → ${SELF_URL}/health`);
+  const ping = () => {
+    fetch(`${SELF_URL}/health`)
+      .then((res) => res.json())
+      .then((data) => console.log(`[Keepalive] ✓ ${data.status} (${data.rooms?.rooms ?? '?'} rooms, uptime: ${Math.round(data.uptime)}s)`))
+      .catch((err) => console.error(`[Keepalive] ✗ ${err.message}`));
+  };
+  // First ping after 30s (give server time to boot), then every 10min
+  setTimeout(() => { ping(); setInterval(ping, KEEPALIVE_INTERVAL); }, 30_000);
+}
+
 // ─── Room Manager & Relay ──────────────────────────────────────────────────
 const roomManager = new RoomManager({
   timeoutMs: ROOM_TIMEOUT,
@@ -87,6 +105,7 @@ const server = app.listen(PORT, () => {
 ║  Health: http://localhost:${PORT}/health                 ║
 ╚══════════════════════════════════════════════════════════╝
   `);
+  startKeepalive();
 });
 
 server.on('upgrade', (req, socket, head) => {
