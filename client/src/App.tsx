@@ -360,6 +360,7 @@ const ReceiverJoin = ({ tunnel, onBack }: { tunnel: TunnelClient; onBack: () => 
   const [update, setUpdate] = useState<RoomUpdate | null>(null);
   const [availableRooms, setAvailableRooms] = useState<any[]>([]);
   const [showManual, setShowManual] = useState(false);
+  const [wsReady, setWsReady] = useState(false);
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
@@ -368,7 +369,12 @@ const ReceiverJoin = ({ tunnel, onBack }: { tunnel: TunnelClient; onBack: () => 
   }, []);
 
   useEffect(() => {
-    tunnel.listRooms();
+    const handleStateChange = (state: ConnectionState) => {
+      if (state === 'connected') {
+        setWsReady(true);
+        tunnel.listRooms();
+      }
+    };
     tunnel.onMessage = (msg: ServerMessage) => {
       if (msg.type === 'room_joined') { setConnected(true); setError(null); setNeedPw(false); }
       else if (msg.type === 'error') { if (msg.needPassword) setNeedPw(true); setError(msg.reason); }
@@ -376,7 +382,8 @@ const ReceiverJoin = ({ tunnel, onBack }: { tunnel: TunnelClient; onBack: () => 
       else if (msg.type === 'room_update') setUpdate(msg as unknown as RoomUpdate);
       else if (msg.type === 'owner_disconnected' || msg.type === 'room_left') { setConnected(false); setUpdate(null); setError(msg.reason || 'Room closed'); }
     };
-    const interval = setInterval(() => tunnel.listRooms(), 3000);
+    handleStateChange(tunnel.getState());
+    const interval = setInterval(() => { if (wsReady) tunnel.listRooms(); }, 3000);
     return () => { clearInterval(interval); tunnel.onMessage = () => {}; };
   }, [tunnel]);
 

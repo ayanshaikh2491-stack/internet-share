@@ -20,7 +20,7 @@ export class UserManager {
   constructor(dbPath) {
     const finalPath = dbPath || path.join(__dirname, '..', 'data', 'users.db');
 	this.db = new Database(finalPath);
-	this.db.pragma('journal_mode = WAL');
+		this.db.pragma('journal_mode = DELETE');
 	this._initSchema();
   }
 
