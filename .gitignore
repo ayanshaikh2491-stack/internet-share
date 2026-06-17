@@ -1,3 +1,5 @@
 node_modules/
 dist/
 .env
+gh-create-workflow.py
+.github/
