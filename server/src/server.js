@@ -1,0 +1,96 @@
+/**
+ * Internet Share — Relay Server
+ * WebSocket-based relay for peer-to-peer internet sharing.
+ *
+ * Sender creates a room → gets a 4-char code
+ * Receiver enters the code → gets paired with sender
+ * All traffic is relayed through the server
+ */
+
+import dotenv from 'dotenv';
+dotenv.config();
+import express from 'express';
+import { WebSocketServer } from 'ws';
+import { RoomManager } from './room-manager.js';
+import { Relay } from './relay.js';
+import { message, ServerMessage, ClientMessage } from './protocol.js';
+
+// ─── Config ────────────────────────────────────────────────────────────────
+const PORT = parseInt(process.env.PORT || '3001', 10);
+const ROOM_TIMEOUT = parseInt(process.env.ROOM_TIMEOUT || '1800000', 10); // 30 min
+
+// ─── Express (HTTP API) ────────────────────────────────────────────────────
+const app = express();
+
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    rooms: relay.getStats(),
+  });
+});
+
+app.get('/stats', (req, res) => {
+  res.json(relay.getStats());
+});
+
+// ─── Room Manager & Relay ──────────────────────────────────────────────────
+const roomManager = new RoomManager({
+  timeoutMs: ROOM_TIMEOUT,
+  onPairReady: (room) => relay.onPairReady(room),
+});
+
+const relay = new Relay(roomManager);
+
+// Periodic cleanup of stale rooms
+setInterval(() => roomManager.cleanup(), 60 * 1000);
+
+// ─── WebSocket Server ──────────────────────────────────────────────────────
+const wss = new WebSocketServer({ noServer: true });
+
+wss.on('connection', (ws, req) => {
+  const ip = req.socket.remoteAddress;
+  console.log(`[WS] New connection from ${ip}`);
+
+  // Handle text messages (protocol commands)
+  ws.on('message', (data, isBinary) => {
+    if (isBinary) {
+      // Binary data — relay directly to peer
+      relay.relayData(ws, data);
+    } else {
+      // Text — parse as JSON protocol message
+      relay.handleMessage(ws, data.toString());
+    }
+  });
+
+  // Handle disconnect
+  ws.on('close', () => {
+    relay.handleDisconnect(ws);
+    console.log(`[WS] Connection closed from ${ip}`);
+  });
+
+  // Handle errors
+  ws.on('error', (err) => {
+    console.error(`[WS] Error from ${ip}:`, err.message);
+    relay.handleDisconnect(ws);
+  });
+});
+
+// ─── HTTP Upgrade (attach WS to Express server) ────────────────────────────
+const server = app.listen(PORT, () => {
+  console.log(`
+╔══════════════════════════════════════════════════════════╗
+║  🌐 Internet Share Relay Server                         ║
+║  HTTP: http://localhost:${PORT}                         ║
+║  WS:   ws://localhost:${PORT}                           ║
+║  Health: http://localhost:${PORT}/health                 ║
+╚══════════════════════════════════════════════════════════╝
+  `);
+});
+
+server.on('upgrade', (req, socket, head) => {
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    wss.emit('connection', ws, req);
+  });
+});

@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: internet-share-relay
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: cd server && npm install
+    startCommand: cd server && node src/server.js
+    envVars:
+      - key: PORT
+        value: 3001
+      - key: ROOM_TIMEOUT
+        value: 1800000
