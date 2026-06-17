@@ -61,8 +61,9 @@ const roomManager = new RoomManager({
 
 const relay = new Relay(roomManager);
 
-// Periodic cleanup of stale rooms
+// Periodic cleanup of stale rooms + stats tick
 setInterval(() => roomManager.cleanup(), 60 * 1000);
+setInterval(() => roomManager.tickStats(), 1000); // 1-second tick for live stats
 
 // ─── WebSocket Server ──────────────────────────────────────────────────────
 const wss = new WebSocketServer({ noServer: true });

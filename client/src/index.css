@@ -1,17 +1,23 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 :root {
-  --bg-primary: #0a0a0f;
-  --bg-card: rgba(255, 255, 255, 0.03);
-  --border-card: rgba(255, 255, 255, 0.08);
-  --text-primary: #f0f0f5;
-  --text-secondary: #8888a0;
+  --canvas: #0f0f12;
+  --canvas-elevated: #18181b;
+  --surface-dark: #1c1c1f;
+  --surface-hover: #222225;
+  --hairline: #27272a;
+  --primary: #7c3aed;
+  --primary-hover: #8b5cf6;
   --accent-cyan: #06b6d4;
-  --accent-purple: #8b5cf6;
+  --accent-green: #10b981;
   --accent-pink: #ec4899;
-  --success: #10b981;
-  --danger: #ef4444;
-  --warning: #f59e0b;
+  --accent-red: #ef4444;
+  --accent-amber: #f59e0b;
+  --ink: #fafafa;
+  --body: #a1a1aa;
+  --muted: #71717a;
+  --muted-soft: #52525b;
 }
 
 * {
@@ -22,8 +28,8 @@
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background: var(--bg-primary);
-  color: var(--text-primary);
+  background: var(--canvas);
+  color: var(--ink);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
@@ -31,4 +37,49 @@ body {
 
 #root {
   min-height: 100vh;
+}
+
+/* ─── Animations ─────────────────────────────────────────────────────── */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--hairline);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-soft);
+}
+
+/* ─── Selection ──────────────────────────────────────────────────────── */
+::selection {
+  background: rgba(124, 58, 237, 0.3);
+  color: var(--ink);
 }

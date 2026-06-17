@@ -26,6 +26,16 @@ export const ServerMessage = {
   ERROR: 'error',
   PEER_CONNECTED: 'peer_connected',
   PEER_DISCONNECTED: 'peer_disconnected',
+  ROOM_UPDATE: 'room_update',
+};
+
+/**
+ * Default room settings
+ */
+export const DEFAULT_ROOM_SETTINGS = {
+  password: null,
+  maxDataMB: null,      // null = unlimited
+  maxTimeMinutes: null,  // null = unlimited
 };
 
 /**

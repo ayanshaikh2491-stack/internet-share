@@ -9,9 +9,24 @@ export interface ServerMessage {
   [key: string]: any;
 }
 
+export interface RoomConfig {
+  password?: string | null;
+  maxDataMB?: number | null;
+  maxTimeMinutes?: number | null;
+}
+
 export interface RoomInfo {
   roomId: string;
   roomCode: string;
+  config?: RoomConfig;
+}
+
+export interface RoomUpdate {
+  status: string;
+  dataMBUsed: number;
+  duration: number;
+  maxDataMB: number | null;
+  maxTimeMinutes: number | null;
 }
 
 export class TunnelClient {
@@ -48,7 +63,6 @@ export class TunnelClient {
         const msg = JSON.parse(event.data as string);
         this.onMessage(msg);
       } catch {
-        // Binary message — pass as-is
         this.onMessage({ type: 'data', payload: event.data });
       }
     };
@@ -70,12 +84,14 @@ export class TunnelClient {
     }
   }
 
-  createRoom() {
-    this.send({ type: 'create_room' });
+  createRoom(settings?: RoomConfig) {
+    this.send({ type: 'create_room', ...settings });
   }
 
-  joinRoom(roomCode: string) {
-    this.send({ type: 'join_room', roomCode });
+  joinRoom(roomCode: string, password?: string) {
+    const msg: any = { type: 'join_room', roomCode };
+    if (password) msg.password = password;
+    this.send(msg);
   }
 
   leaveRoom() {
