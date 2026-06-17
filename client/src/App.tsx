@@ -163,6 +163,8 @@ const ReceiverJoin = ({ tunnel, onBack }: { tunnel: TunnelClient; onBack: () => 
   const [error, setError] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const [update, setUpdate] = useState<RoomUpdate | null>(null);
+  const [availableRooms, setAvailableRooms] = useState<any[]>([]);
+  const [showManual, setShowManual] = useState(false);
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
@@ -171,18 +173,29 @@ const ReceiverJoin = ({ tunnel, onBack }: { tunnel: TunnelClient; onBack: () => 
   }, []);
 
   useEffect(() => {
+    tunnel.listRooms();
     tunnel.onMessage = (msg: ServerMessage) => {
       if (msg.type === 'room_joined') { setConnected(true); setError(null); setNeedPw(false); }
       else if (msg.type === 'error') { if (msg.needPassword) setNeedPw(true); setError(msg.reason); }
+      else if (msg.type === 'room_list') setAvailableRooms(msg.rooms || []);
       else if (msg.type === 'room_update') setUpdate(msg as unknown as RoomUpdate);
       else if (msg.type === 'owner_disconnected' || msg.type === 'room_left') { setConnected(false); setUpdate(null); setError(msg.reason || 'Room closed'); }
     };
-    return () => { tunnel.onMessage = () => {}; };
+    const interval = setInterval(() => tunnel.listRooms(), 3000);
+    return () => { clearInterval(interval); tunnel.onMessage = () => {}; };
   }, [tunnel]);
 
   const handleJoin = useCallback(() => {
     if (code.trim().length >= 4) { setError(null); tunnel.joinRoom(code.trim().toUpperCase(), password || undefined); }
   }, [tunnel, code, password]);
+
+  const handleRoomClick = useCallback((room: any) => {
+    setCode(room.code);
+    setNeedPw(room.hasPassword);
+    setPassword('');
+    setError(null);
+    if (!room.hasPassword) tunnel.joinRoom(room.code);
+  }, [tunnel]);
 
   if (connected) {
     return (
@@ -212,29 +225,77 @@ const ReceiverJoin = ({ tunnel, onBack }: { tunnel: TunnelClient; onBack: () => 
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen" style={{ background: S.white }}>
-      <button onClick={onBack} className="absolute top-6 left-6 w-9 h-9 flex items-center justify-center rounded" style={{ border: `1px solid ${S.border}`, borderRadius: '4px' }}><ArrowLeft /></button>
-      <div className="w-full max-w-sm px-6 text-center">
-        <div className="w-12 h-12 mx-auto mb-5 flex items-center justify-center rounded" style={{ background: 'rgba(83,58,253,0.05)', border: `1px solid rgba(83,58,253,0.2)` }}><KeyIcon /></div>
+    <div className="flex flex-col min-h-screen" style={{ background: S.white }}>
+      <div className="sticky top-0 z-10 bg-white border-b" style={{ borderColor: S.border }}>
+        <div className="flex items-center justify-between max-w-lg mx-auto px-4 py-4">
+          <button onClick={onBack} className="w-9 h-9 flex items-center justify-center rounded" style={{ border: `1px solid ${S.border}`, borderRadius: '4px' }}><ArrowLeft /></button>
+          <button onClick={() => setShowManual(!showManual)}
+            className="text-[12px] font-medium px-3 py-1.5 rounded" style={{ border: `1px solid ${S.border}`, borderRadius: '4px', color: S.purple }}>
+            {showManual ? 'Show rooms' : 'Enter code'}
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 max-w-lg mx-auto w-full px-4 py-6">
         <h2 className="text-[26px] font-light mb-1" style={{ color: S.navy, letterSpacing: '-0.26px' }}>Join a Room</h2>
-        <p className="text-[14px] mb-6" style={{ color: S.body, fontWeight: 300 }}>Enter the room code from the donor</p>
-        <input type="text" value={code} onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4))}
-          placeholder="ABCD" maxLength={4}
-          className="w-full text-center text-4xl font-bold py-4 bg-white border text-[#061b31] placeholder:text-[#c8d4e0] focus:outline-none"
-          style={{ borderColor: S.border, borderRadius: '4px', fontFamily: "'Source Code Pro', monospace", letterSpacing: '0.12em' }}
-          onKeyDown={e => e.key === 'Enter' && handleJoin()} />
-        {needPw && (
-          <div className="mt-4">
-            <p className="text-[11px] font-medium text-left mb-1.5" style={{ color: S.body }}>This room is password protected</p>
-            <input type="text" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter password"
-              className="w-full px-3 py-2.5 text-[14px] bg-white border text-[#061b31] placeholder:text-[#64748d] focus:outline-none"
-              style={{ borderColor: S.border, borderRadius: '4px' }} onKeyDown={e => e.key === 'Enter' && handleJoin()} />
+        <p className="text-[14px] mb-6" style={{ color: S.body, fontWeight: 300 }}>{availableRooms.length} room{availableRooms.length !== 1 ? 's' : ''} available</p>
+
+        {error && <div className="mb-4 p-3 rounded text-[12px]" style={{ background: 'rgba(234,34,97,0.05)', border: '1px solid rgba(234,34,97,0.15)', color: S.ruby }}>{error}</div>}
+
+        {availableRooms.length > 0 && !showManual && (
+          <div className="space-y-3 mb-6">
+            {availableRooms.map(room => (
+              <button key={room.code} onClick={() => handleRoomClick(room)}
+                className="w-full p-4 bg-white text-left rounded transition-all hover:shadow-md"
+                style={{ border: `1px solid ${S.border}`, borderRadius: '5px', boxShadow: `${S.shadow} 0px 14px 28px -12px, ${S.shadowB} 0px 8px 18px -8px` }}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xl font-bold tracking-widest" style={{ color: S.navy, fontFamily: "'Source Code Pro', monospace" }}>{room.code}</span>
+                  <div className="flex items-center gap-2">
+                    {room.hasPassword && <span className="flex items-center text-[11px]" style={{ color: S.purple }}><LockIcon /> &nbsp;Locked</span>}
+                    <span className={`inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-1 ${room.status === 'active' ? 'text-[#108c3d]' : 'text-[#64748d]'}`}
+                      style={{ background: room.status === 'active' ? S.greenBg : '#f6f9fc', border: `1px solid ${room.status === 'active' ? S.greenBorder : S.border}`, borderRadius: '4px' }}>
+                      <span className={`w-[4px] h-[4px] rounded-[1px] ${room.status === 'active' ? 'bg-[#15be53] animate-pulse' : 'bg-[#64748d]'}`} />
+                      {room.status === 'active' ? `${room.peerCount} connected` : 'Waiting'}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 text-[11px]" style={{ color: S.body }}>
+                  {room.maxDataMB && <span><DataIcon /> {room.maxDataMB}MB limit</span>}
+                  {room.maxTimeMinutes && <span><ClockIcon /> {room.maxTimeMinutes}min</span>}
+                </div>
+              </button>
+            ))}
           </div>
         )}
-        <button onClick={handleJoin} disabled={code.length < 4}
-          className="mt-4 w-full py-2.5 text-[14px] font-normal text-white disabled:opacity-30 disabled:cursor-not-allowed"
-          style={{ borderRadius: '4px', background: S.purple }}>Connect</button>
-        {error && <div className="mt-4 p-3 rounded text-[12px]" style={{ background: 'rgba(234,34,97,0.05)', border: '1px solid rgba(234,34,97,0.15)', color: S.ruby }}>{error}</div>}
+
+        {availableRooms.length === 0 && !showManual && (
+          <div className="text-center py-10">
+            <div className="mb-3" style={{ fontSize: '32px' }}>🔌</div>
+            <p className="text-[14px]" style={{ color: S.body, fontWeight: 300 }}>No active rooms right now</p>
+            <p className="text-[12px] mt-1" style={{ color: S.body }}>Waiting for donors to create rooms…</p>
+          </div>
+        )}
+
+        {(showManual || availableRooms.length === 0) && (
+          <div className="pt-2">
+            <input type="text" value={code} onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4))}
+              placeholder="ABCD" maxLength={4}
+              className="w-full text-center text-4xl font-bold py-4 bg-white border text-[#061b31] placeholder:text-[#c8d4e0] focus:outline-none"
+              style={{ borderColor: S.border, borderRadius: '4px', fontFamily: "'Source Code Pro', monospace", letterSpacing: '0.12em' }}
+              onKeyDown={e => e.key === 'Enter' && handleJoin()} />
+            {needPw && (
+              <div className="mt-4">
+                <p className="text-[11px] font-medium text-left mb-1.5" style={{ color: S.body }}>This room is password protected</p>
+                <input type="text" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter password"
+                  className="w-full px-3 py-2.5 text-[14px] bg-white border text-[#061b31] placeholder:text-[#64748d] focus:outline-none"
+                  style={{ borderColor: S.border, borderRadius: '4px' }} onKeyDown={e => e.key === 'Enter' && handleJoin()} />
+              </div>
+            )}
+            <button onClick={handleJoin} disabled={code.length < 4}
+              className="mt-4 w-full py-2.5 text-[14px] font-normal text-white disabled:opacity-30 disabled:cursor-not-allowed"
+              style={{ borderRadius: '4px', background: S.purple }}>Connect</button>
+          </div>
+        )}
       </div>
     </div>
   );

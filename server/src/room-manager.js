@@ -305,4 +305,23 @@ export class RoomManager {
     }
     return { total: this.rooms.size, waiting, active, closed, totalPeers };
   }
+
+  /** Return public (waiting/active) rooms for the receiver list */
+  listPublicRooms() {
+    const list = [];
+    for (const room of this.rooms.values()) {
+      if (room.status === 'waiting' || room.status === 'active') {
+        list.push({
+          code: room.code,
+          status: room.status,
+          hasPassword: !!room.config.password,
+          peerCount: room.peers.size,
+          dataMBUsed: Math.round(room.stats.dataMBUsed * 100) / 100,
+          maxDataMB: room.config.maxDataMB,
+          maxTimeMinutes: room.config.maxTimeMinutes,
+        });
+      }
+    }
+    return list;
+  }
 }

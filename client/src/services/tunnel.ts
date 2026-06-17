@@ -125,6 +125,10 @@ export class TunnelClient {
     this.send('get_rooms');
   }
 
+  listRooms() {
+    this.send('list_rooms');
+  }
+
   getPeers(roomId: string) {
     this.send('get_peers', { roomId });
   }

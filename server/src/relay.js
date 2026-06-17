@@ -96,6 +96,12 @@ export class Relay {
         break;
       }
 
+      case 'list_rooms': {
+        const publicRooms = this.roomManager.listPublicRooms();
+        ws.send(message(ServerMessage.ROOM_LIST, { rooms: publicRooms }));
+        break;
+      }
+
       case 'get_peers': {
         const roomId = parsed.roomId;
         const room = this.roomManager.rooms.get(roomId);
