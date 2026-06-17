@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import QRCode from 'qrcode'
 import { TunnelClient } from './services/tunnel'
 import type { ConnectionState, ServerMessage } from './services/tunnel'
 
@@ -62,6 +63,58 @@ function RoomCodeDisplay({ code }: { code: string }) {
         ))}
       </div>
     </div>
+  )
+}
+
+// ─── QR Code ───────────────────────────────────────────────────────────────
+function QRCodeDisplay({ code, url }: { code: string; url: string }) {
+  const [dataUrl, setDataUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    QRCode.toDataURL(url, {
+      width: 280,
+      margin: 2,
+      color: { dark: '#ffffff', light: '#00000000' },
+    }).then(setDataUrl)
+  }, [url])
+
+  if (!dataUrl) return null
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <div className="p-3 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10">
+        <img src={dataUrl} alt={`QR: ${code}`} className="w-40 h-40 sm:w-48 sm:h-48" />
+      </div>
+      <p className="text-xs text-white/40">Scan to join</p>
+    </div>
+  )
+}
+
+// ─── Share Button ──────────────────────────────────────────────────────────
+function ShareButton({ code, url }: { code: string; url: string }) {
+  const handleShare = useCallback(async () => {
+    if (navigator.share) {
+      await navigator.share({
+        title: 'Internet Share',
+        text: `Use my internet! Join room ${code}`,
+        url,
+      })
+    } else {
+      await navigator.clipboard.writeText(url)
+      alert(`Link copied: ${url}`)
+    }
+  }, [code, url])
+
+  return (
+    <button
+      onClick={handleShare}
+      className="flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-gradient-to-r from-cyan-500/20 to-purple-500/20 hover:from-cyan-500/30 hover:to-purple-500/30 border border-white/10 transition-all text-white/80 hover:text-white"
+    >
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+      </svg>
+      <span className="text-sm font-medium">Share Link</span>
+    </button>
   )
 }
 
@@ -129,6 +182,10 @@ function ShareScreen({
 }) {
   const [copied, setCopied] = useState(false)
 
+  const shareUrl = state.roomCode
+    ? `${window.location.origin}${window.location.pathname}?join=${state.roomCode}`
+    : ''
+
   const handleCreate = useCallback(() => {
     tunnel.createRoom()
   }, [tunnel])
@@ -152,7 +209,7 @@ function ShareScreen({
         </svg>
       </button>
 
-      <div className="text-center mb-12">
+      <div className="text-center mb-8">
         <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
           <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.746-5.747 15.06-5.747 20.808 0M12.268 20.182a21.462 21.462 0 01-5.4-3.14m10.262 3.14a21.46 21.46 0 00-5.4-3.14" />
@@ -172,45 +229,55 @@ function ShareScreen({
           Create Room
         </button>
       ) : (
-        <div className="w-full max-w-md mt-8 space-y-6">
+        <div className="w-full max-w-md mt-6 space-y-5">
           <div className="text-center">
             <p className="text-sm text-white/40 mb-3 uppercase tracking-wider">Share this code</p>
             <RoomCodeDisplay code={state.roomCode} />
           </div>
 
-          <button
-            onClick={handleCopy}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors text-white/70 hover:text-white"
-          >
-            {copied ? (
-              <>
-                <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                </svg>
-                <span className="text-emerald-400">Copied!</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
-                </svg>
-                Copy Code
-              </>
-            )}
-          </button>
+          {/* QR Code + Actions */}
+          <div className="flex flex-col items-center gap-4">
+            <QRCodeDisplay code={state.roomCode} url={shareUrl} />
+            <ShareButton code={state.roomCode} url={shareUrl} />
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex gap-3">
+            <button
+              onClick={handleCopy}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors text-white/70 hover:text-white"
+            >
+              {copied ? (
+                <>
+                  <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                  <span className="text-emerald-400">Copied!</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+                  </svg>
+                  Copy Code
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={onBack}
+              className="px-4 py-3 rounded-xl text-white/40 hover:text-white/70 hover:bg-white/5 transition-colors border border-transparent hover:border-white/10"
+            >
+              Leave
+            </button>
+          </div>
 
           {state.connectionState === 'paired' && (
             <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
               <p className="text-emerald-400 font-medium">Someone connected to your room!</p>
+              <p className="text-emerald-400/60 text-sm mt-1">Internet data is being relayed</p>
             </div>
           )}
-
-          <button
-            onClick={onBack}
-            className="w-full py-3 rounded-xl text-white/40 hover:text-white/70 hover:bg-white/5 transition-colors"
-          >
-            Leave Room
-          </button>
         </div>
       )}
     </div>
@@ -228,6 +295,19 @@ function ReceiveScreen({
   onBack: () => void
 }) {
   const [code, setCode] = useState('')
+
+  // Auto-fill room code from URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const joinCode = params.get('join')
+    if (joinCode && joinCode.length >= 4) {
+      setCode(joinCode.toUpperCase().slice(0, 4))
+      // Auto-join after short delay to let connection establish
+      setTimeout(() => {
+        tunnel.joinRoom(joinCode.toUpperCase().slice(0, 4))
+      }, 500)
+    }
+  }, [tunnel])
 
   const handleJoin = useCallback(() => {
     if (code.trim().length >= 4) {
