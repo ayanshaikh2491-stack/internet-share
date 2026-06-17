@@ -1,295 +1,339 @@
-# Internet Share — Design System
-
-> **Version:** `1.0.0` | **Name:** `internet-share-design`
-> **Style:** Dark gaming / Among Us inspired — neon accents on void canvas
-
-## Brand Overview & Philosophy
-
-A real-time internet sharing app that feels like an Among Us lobby — dark, atmospheric, playful, with glowing accents and a subtle space-station UI vibe. The brand is about connecting people through shared resources, with a low-poly sci-fi aesthetic.
-
-**Core Trinity:** Void (#0f0f12) · Cyber Purple (#7c3aed) · Signal Cyan (#06b6d4)
-
-**Key visual anchors:**
-- Dark canvas with radial depth (never flat black)
-- Dual neon accent system: Purple (host/admin) / Cyan (connection/activity)
-- Glowing card edges via `box-shadow` instead of full borders
-- Room codes as oversized display elements with per-character glow
-- Low UI density = lobby atmosphere
-- Status dots pulse like Among Us heartbeat indicators
-
+---
+version: alpha
+name: Internet Share
+description: Among Us inspired dark gaming design for a peer-to-peer internet sharing relay. Spaceship crew lobby aesthetic with neon purple/cyan accents on deep void canvas.
+colors:
+  primary: "#7c3aed"
+  primary-hover: "#8b5cf6"
+  secondary-pink: "#ec4899"
+  secondary-pink-hover: "#f472b6"
+  accent-cyan: "#06b6d4"
+  accent-green: "#10b981"
+  accent-red: "#ef4444"
+  accent-amber: "#f59e0b"
+  canvas: "#0f0f12"
+  canvas-elevated: "#18181b"
+  surface: "#1c1c1f"
+  surface-hover: "#222225"
+  hairline: "#27272a"
+  ink: "#fafafa"
+  body: "#a1a1aa"
+  muted: "#71717a"
+  muted-soft: "#52525b"
+  primary-glow: "rgba(124,58,237,0.3)"
+  primary-glow-soft: "rgba(124,58,237,0.15)"
+  pink-glow: "rgba(236,72,153,0.3)"
+  cyan-glow: "rgba(6,182,212,0.3)"
+  green-glow: "rgba(16,185,129,0.25)"
+  glass-bg: "rgba(24,24,27,0.85)"
+typography:
+  h1:
+    fontFamily: Orbitron
+    fontSize: 3rem
+    fontWeight: 700
+    lineHeight: 1.1
+    letterSpacing: "0.04em"
+  h2:
+    fontFamily: Orbitron
+    fontSize: 1.5rem
+    fontWeight: 600
+    lineHeight: 1.2
+    letterSpacing: "0.02em"
+  h3:
+    fontFamily: Inter
+    fontSize: 1.125rem
+    fontWeight: 600
+    lineHeight: 1.3
+    letterSpacing: "0"
+  body:
+    fontFamily: Inter
+    fontSize: 0.875rem
+    fontWeight: 400
+    lineHeight: 1.5
+    letterSpacing: "-0.01em"
+  body-small:
+    fontFamily: Inter
+    fontSize: 0.75rem
+    fontWeight: 500
+    lineHeight: 1.4
+    letterSpacing: "0.02em"
+    textTransform: uppercase
+  code:
+    fontFamily: JetBrains Mono
+    fontSize: 2.25rem
+    fontWeight: 700
+    lineHeight: 1
+    letterSpacing: "0.08em"
+  mono-small:
+    fontFamily: JetBrains Mono
+    fontSize: 0.75rem
+    fontWeight: 500
+    lineHeight: 1.4
+    letterSpacing: "0"
+rounded:
+  sm: 8px
+  md: 12px
+  lg: 16px
+  xl: 24px
+  full: 9999px
+spacing:
+  xs: 4px
+  sm: 8px
+  md: 12px
+  lg: 16px
+  xl: 20px
+  xxl: 24px
+components:
+  status-badge:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.body}"
+    rounded: "{rounded.full}"
+    padding: 8px 12px
+    typography: "{typography.body-small}"
+  status-badge-lobby:
+    backgroundColor: "rgba(124,58,237,0.1)"
+    textColor: "{colors.primary}"
+    rounded: "{rounded.full}"
+    padding: 8px 12px
+    typography: "{typography.body-small}"
+  status-badge-active:
+    backgroundColor: "rgba(16,185,129,0.08)"
+    textColor: "{colors.accent-green}"
+    rounded: "{rounded.full}"
+    padding: 8px 12px
+    typography: "{typography.body-small}"
+  room-code-card:
+    backgroundColor: "{colors.canvas-elevated}"
+    borderColor: "{colors.hairline}"
+    rounded: "{rounded.xl}"
+    padding: 24px 32px
+  room-code-char:
+    textColor: "#c4b5fd"
+    typography: "{typography.code}"
+  qr-container:
+    backgroundColor: "{colors.canvas-elevated}"
+    borderColor: "{colors.hairline}"
+    rounded: "{rounded.md}"
+    padding: 12px
+  card-home:
+    backgroundColor: "{colors.canvas-elevated}"
+    borderColor: "{colors.hairline}"
+    rounded: "{rounded.xl}"
+    padding: 32px
+  card-home-hover:
+    backgroundColor: "{colors.canvas-elevated}"
+    borderColor: "rgba(124,58,237,0.3)"
+    rounded: "{rounded.xl}"
+    padding: 32px
+  action-button:
+    backgroundColor: "{colors.primary}"
+    textColor: "#ffffff"
+    rounded: "{rounded.md}"
+    padding: 16px 48px
+    typography: "{typography.body-small}"
+  action-button-hover:
+    backgroundColor: "{colors.primary-hover}"
+    textColor: "#ffffff"
+    rounded: "{rounded.md}"
+    padding: 16px 48px
+    typography: "{typography.body-small}"
+  action-button-join:
+    backgroundGradient: "linear-gradient(to right, #7c3aed, #ec4899)"
+    textColor: "#ffffff"
+    rounded: "{rounded.xl}"
+    padding: 16px 32px
+    typography: "{typography.body-small}"
+  secondary-button:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.body}"
+    borderColor: "{colors.hairline}"
+    rounded: "{rounded.md}"
+    padding: 12px 24px
+    typography: "{typography.body-small}"
+  secondary-button-hover:
+    backgroundColor: "{colors.surface-hover}"
+    textColor: "{colors.ink}"
+    borderColor: "{colors.hairline}"
+    rounded: "{rounded.md}"
+    padding: 12px 24px
+    typography: "{typography.body-small}"
+  icon-socket:
+    backgroundColor: "rgba(124,58,237,0.08)"
+    borderColor: "rgba(124,58,237,0.15)"
+    rounded: "{rounded.md}"
+    padding: 16px
+  icon-socket-pink:
+    backgroundColor: "rgba(236,72,153,0.08)"
+    borderColor: "rgba(236,72,153,0.15)"
+    rounded: "{rounded.md}"
+    padding: 16px
+  modal-overlay:
+    backgroundColor: "rgba(0,0,0,0.6)"
+    textColor: "{colors.ink}"
+  modal-card:
+    backgroundColor: "{colors.canvas-elevated}"
+    borderColor: "{colors.hairline}"
+    rounded: "{rounded.xl}"
+    padding: 24px 32px
+  input-field:
+    backgroundColor: "{colors.surface}"
+    borderColor: "{colors.hairline}"
+    textColor: "{colors.ink}"
+    placeholderColor: "{colors.muted-soft}"
+    rounded: "{rounded.md}"
+    padding: 12px 16px
+  input-field-focus:
+    backgroundColor: "{colors.surface}"
+    borderColor: "{colors.primary}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.md}"
+    padding: 12px 16px
+  cap-badge:
+    backgroundColor: "rgba(124,58,237,0.08)"
+    textColor: "{colors.primary}"
+    rounded: "{rounded.full}"
+    padding: 4px 12px
+    typography: "{typography.body-small}"
+  cap-badge-cyan:
+    backgroundColor: "rgba(6,182,212,0.08)"
+    textColor: "{colors.accent-cyan}"
+    rounded: "{rounded.full}"
+    padding: 4px 12px
+    typography: "{typography.body-small}"
+  cap-badge-amber:
+    backgroundColor: "rgba(245,158,11,0.08)"
+    textColor: "{colors.accent-amber}"
+    rounded: "{rounded.full}"
+    padding: 4px 12px
+    typography: "{typography.body-small}"
+  stats-card:
+    backgroundColor: "{colors.canvas-elevated}"
+    borderColor: "{colors.hairline}"
+    rounded: "{rounded.md}"
+    padding: 16px
+  progress-bar:
+    backgroundColor: "{colors.hairline}"
+    fillColor: "{colors.primary}"
+    rounded: "{rounded.full}"
+    height: 6px
+  progress-bar-warn:
+    backgroundColor: "{colors.hairline}"
+    fillColor: "{colors.accent-amber}"
+    rounded: "{rounded.full}"
+    height: 6px
 ---
 
-## Color System
+## Overview
 
-### Brand & Accent
+Internet Share is a peer-to-peer internet relay app with an Among Us inspired dark gaming aesthetic. The design evokes a spaceship crew lobby — players create rooms, share codes, and connect in a dark immersive environment with neon glowing controls. The UI feels like a holographic control panel aboard a cyberpunk vessel.
 
-| Token | Hex | Usage |
-|---|---|---|
-| `primary` | `#7c3aed` | CTAs, host badge, room creation, active states |
-| `primary-hover` | `#8b5cf6` | Button hover, link hover |
-| `primary-glow` | `rgba(124,58,237,0.3)` | Box-shadow glow on primary elements |
-| `accent-cyan` | `#06b6d4` | Connection status, data activity, success |
-| `accent-cyan-glow` | `rgba(6,182,212,0.3)` | Cyan glow for active rooms |
-| `accent-green` | `#10b981` | Paired/active, success states, health |
-| `accent-pink` | `#ec4899` | Receiver/join flow, secondary accent |
-| `accent-amber` | `#f59e0b` | Warnings, limits near capacity |
-| `accent-red` | `#ef4444` | Errors, disconnection, data cap reached |
+## Colors
 
-### Surface
+- **Canvas (`#0f0f12`):** The void — deepest background with a slight warmth to avoid pure black crush.
+- **Primary (`#7c3aed`):** Purple — main accent for actions, share mode, room codes. Glows on interactive elements.
+- **Secondary Pink (`#ec4899`):** Used for join/receive mode. Creates visual distinction between share and join flows.
+- **Accent Cyan (`#06b6d4`):** Informational — progress bars, time limits, status dots.
+- **Accent Green (`#10b981`):** Connected/success states — active badges, success indicators.
+- **Ink (`#fafafa`):** Primary text — near-white for maximum contrast on dark canvas.
+- **Body (`#a1a1aa`):** Secondary text — warm gray that's readable but doesn't compete with ink.
+- **Hairline (`#27272a`):** Borders and dividers — surfaces are separated by subtle lines rather than shadows.
 
-| Token | Hex | Usage |
-|---|---|---|
-| `canvas` | `#0f0f12` | Default page floor (void black) |
-| `canvas-soft` | `#131316` | Card backgrounds, panels |
-| `canvas-elevated` | `#18181b` | Elevated cards, modals |
-| `surface-dark` | `#1c1c1f` | Inputs, interactive surfaces |
-| `surface-hover` | `#222225` | Hover state for items |
-| `hairline` | `#27272a` | 1px subtle borders |
-| `hairline-strong` | `#3f3f46` | Active/focus borders |
+### Glass & Glow Effects
 
-### Text
-
-| Token | Hex | Usage |
-|---|---|---|
-| `ink` | `#fafafa` | Headlines, primary text |
-| `body-strong` | `#e4e4e7` | Emphasized body |
-| `body` | `#a1a1aa` | Default text |
-| `muted` | `#71717a` | Secondary text, labels |
-| `muted-soft` | `#52525b` | Placeholders, disabled |
-| `on-primary` | `#ffffff` | Text on primary purple |
-| `on-cyan` | `#000000` | Text on cyan badges |
-| `badge-text` | `#a78bfa` | Room code characters glow |
-
-### Semantic
-
-| Token | Hex | Usage |
-|---|---|---|
-| `success` | `#10b981` | Connected, active |
-| `warning` | `#f59e0b` | Near limit |
-| `error` | `#ef4444` | Error, disconnected |
-| `info` | `#06b6d4` | Info badges |
-
----
+Surfaces use `border: 1px solid {hairline}` instead of box-shadows. Interactive elements (buttons, room codes, focused inputs) get colored glow effects via `box-shadow` for a neon holographic feel.
 
 ## Typography
 
-### Font Stack
+Three fonts serve distinct roles:
+- **Orbitron** — Headings only. Uppercase, wide tracking, sci-fi authority. Used for "ShareNet" logo and section titles.
+- **Inter** — Everything else. Primary body text, labels, buttons, stats. Tight `-0.01em` letter-spacing for density.
+- **JetBrains Mono** — Room codes, timers, data numbers. Any "data/code" adjacent text uses this monospace.
 
-- **Display:** `Orbitron` / `Rajdhani` → Futuristic geometric, uppercase for headings
-- **Body/UI:** `Inter` / `Segoe UI` → Clean sans for readability
-- **Code/Mono:** `JetBrains Mono` / `Fira Code` → Room codes, data stats
-- **Fallback:** `system-ui, -apple-system, sans-serif`
+### Hierarchy
 
-### Hierarchy Table
+| Level | Font | Size | Weight | Tracking | Usage |
+|-------|------|------|--------|----------|-------|
+| Hero/Logo | Orbitron | 48px | 700 | `0.04em` | "ShareNet" title |
+| Section H2 | Orbitron | 24px | 600 | `0.02em` | "Share", "Join" headings |
+| Card H3 | Inter | 18px | 600 | 0 | Card titles |
+| Body | Inter | 14px | 400 | `-0.01em` | Descriptions, instructions |
+| Small/Label | Inter | 12px | 500 uppercase | `0.02em` | Badges, labels, button text |
+| Code | JetBrains Mono | 36px | 700 | `0.08em` | Room code characters |
+| Mono Small | JetBrains Mono | 12px | 500 | 0 | Data values, timers |
 
-| Token | Size | Weight | Line Ht | Letter Spacing | Case | Use |
-|---|---|---|---|---|---|---|
-| `display-xl` | 56px | 700 | 1.0 | 2px | Uppercase | Hero headline |
-| `display-lg` | 40px | 700 | 1.1 | 1.5px | Uppercase | Section heads |
-| `display-md` | 32px | 600 | 1.15 | 1px | Uppercase | Room title |
-| `display-sm` | 24px | 600 | 1.2 | 0.5px | Uppercase | Card headings |
-| `room-code` | 56px | 700 | 1.0 | 8px | Uppercase | Room code char |
-| `room-code-sm` | 40px | 700 | 1.0 | 6px | Uppercase | Small room code |
-| `title-lg` | 20px | 600 | 1.3 | 0.25px | Normal | Feature card titles |
-| `title-md` | 18px | 600 | 1.4 | 0 | Normal | Section titles |
-| `title-sm` | 14px | 500 | 1.4 | 1px | Uppercase | Badge labels |
-| `body-lg` | 18px | 400 | 1.55 | 0 | Normal | Lead paragraphs |
-| `body-md` | 15px | 400 | 1.5 | 0 | Normal | Default body |
-| `body-sm` | 13px | 400 | 1.4 | 0 | Normal | Secondary text |
-| `caption` | 12px | 500 | 1.3 | 0.5px | Uppercase | Mini badges |
-| `label` | 11px | 600 | 1.2 | 1px | Uppercase | Input labels |
-| `code` | 14px | 400 | 1.4 | 0 | Normal | Stats numbers |
-| `button-lg` | 16px | 600 | 1.0 | 1px | Uppercase | Primary CTAs |
-| `button-md` | 14px | 600 | 1.0 | 0.5px | Uppercase | Secondary CTAs |
-| `nav-link` | 13px | 500 | 1.4 | 0.5px | Normal | Nav items |
+## Layout & Spacing
 
-### Principles
+- **Base unit:** 4px
+- **Column grid:** Single column on mobile (<640px), two columns on sm+ (640px+) for the home screen cards.
+- **Max content width:** `max-w-lg` (512px) for forms, `max-w-sm` (384px) for modals
+- **Center alignment:** Everything is center-aligned (text and layout). Full height `min-h-screen` with flex centering.
+- **Fixed header:** Status badge positioned `top-4 right-4` fixed
+- **Back button:** Positioned `top-6 left-6` absolute within each screen
 
-- **Display weights:** Use 700 for maximum impact on headings. Never go below 600.
-- **Body weights:** 400 for paragraphs, 500/600 for emphasis only.
-- **Uppercase + letter-spacing** is the signature rhythm — use on all display, button, and label text.
-- **Do not** uppercase body text — only displays, buttons, labels, badges.
-- **Room codes** get maximum weight (700), monospace font, and per-character letter-spacing.
-- **Substitutes:** Orbitron → Rajdhani → Jura → Inter (with letter-spacing). Inter → system-ui.
+### Gap usage
+- `gap-3` (12px) — between related elements (icon + label, buttons in a row)
+- `gap-4` (16px) — between cards, sections
+- `gap-5` (20px) — between major blocks
+- `space-y-4/5` — vertical stacking within cards
 
----
+## Elevation & Depth
 
-## Spacing System
+All surfaces use the `1px` hairline border to create separation. No shadows on non-interactive elements. Interactive elements get colored box-shadows:
 
-**Base Unit:** 4px
+- **Purple glow:** `0 0 25px rgba(124,58,237,0.25)` — buttons
+- **Purple soft glow:** `0 0 20px rgba(124,58,237,0.15)` — input focus
+- **Purple subtle:** `0 0 30px rgba(124,58,237,0.1)` — card hover
 
-| Token | Pixels | Use |
-|---|---|---|
-| `spacing.xxs` | 4 | Icon gaps |
-| `spacing.xs` | 8 | Tight inner padding |
-| `spacing.sm` | 12 | Small card padding |
-| `spacing.md` | 16 | Default padding |
-| `spacing.lg` | 24 | Card inner padding |
-| `spacing.xl` | 32 | Section padding |
-| `spacing.xxl` | 48 | Between components |
-| `spacing.3xl` | 64 | Between major sections |
-| `spacing.4xl` | 80 | Hero section padding |
-| `spacing.section` | 96 | Between full-page sections |
+Background depth comes from two large blurred circles (`blur(120px)`) positioned off-screen: purple to the top-right, cyan to the bottom-left. This creates an ambient cockpit glow without distracting from content.
 
-**Max content width:** 480px (mobile-first, lobby-style) / 720px (desktop card)
+## Shapes
 
----
+- **Rounded `24px` (xl):** Room code cards, modals, home screen cards
+- **Rounded `12px` (md):** Action buttons, secondary buttons, stats cards
+- **Rounded `8px` (sm):** Input fields, icon containers
+- **Rounded `9999px` (full):** Status badges, pill tags, progress bars
 
-## Elevation & Shadow
-
-### Box Shadows
-
-| Token | Value | Use |
-|---|---|---|
-| `glow-primary` | `0 0 20px rgba(124,58,237,0.25), 0 0 40px rgba(124,58,237,0.1)` | Primary CTA, active room |
-| `glow-cyan` | `0 0 20px rgba(6,182,212,0.25), 0 0 40px rgba(6,182,212,0.1)` | Connection active |
-| `glow-green` | `0 0 20px rgba(16,185,129,0.25)` | Paired/active |
-| `glow-red` | `0 0 15px rgba(239,68,68,0.2)` | Error states |
-| `card` | `0 0 0 1px rgba(255,255,255,0.05)` | Default card edge |
-| `card-hover` | `0 0 0 1px rgba(255,255,255,0.1), 0 8px 32px rgba(0,0,0,0.4)` | Card hover |
-| `elevated` | `0 4px 24px rgba(0,0,0,0.5)` | Modals, overlays |
-
-### Philosophy
-
-> "Depth through glow, not drop-shadow."
-
-Cards sit on the void canvas with a hairline glow edge. Hover reveals brighter edge + cloud shadow underneath. The `glow-*` tokens are used sparingly — only for active/pairing states (like Among Us task completion flash).
-
----
-
-## Border Radius
-
-| Token | Value | Applied To |
-|---|---|---|
-| `rounded.none` | 0 | No rounded corners |
-| `rounded.sm` | 6px | Small badges, inline elements |
-| `rounded.md` | 10px | Inputs, buttons, cards |
-| `rounded.lg` | 16px | Feature cards, large buttons |
-| `rounded.xl` | 24px | Hero cards, modals |
-| `rounded.pill` | 9999px | Status badges, connection dots |
-
----
-
-## Animation & Motion
-
-### Duration Tokens
-
-| Token | Value | Use |
-|---|---|---|
-| `duration.fast` | 150ms | Hover states, color transitions |
-| `duration.normal` | 250ms | UI transitions, panel reveals |
-| `duration.slow` | 500ms | Page transitions, status changes |
-| `duration.pulse` | 2s | Pulsing glows, connection indicators |
-
-### Easing
-
-| Token | Value | Use |
-|---|---|---|
-| `ease.default` | `cubic-bezier(0.4, 0, 0.2, 1)` | Standard UI |
-| `ease.emerge` | `cubic-bezier(0, 0.55, 0.45, 1)` | Cards entering, modals |
-| `ease.pulse` | `ease-in-out` | Status dots |
-
-### Key Animations
-
-- **Status dot pulsing:** The `bg` color pulses from full to 30% opacity, like a lobby heartbeat
-- **Glow reveal:** On paired state, the background glow fades in from 0 → full over 500ms
-- **Room code entrance:** Each character slides up with 80ms stagger delay
-- **Card hover:** Edge brightness increases + subtle lift over 150ms
-
----
-
-## Component Patterns
-
-### Buttons
-
-| Variant | BG | Text | Border | Glow | Hover |
-|---|---|---|---|---|---|
-| Primary | `#7c3aed` | `#ffffff` | None | `glow-primary` | Brighten 10% |
-| Secondary | Transparent | `#a1a1aa` | `hairline` | None | `#27272a` bg |
-| Ghost | Transparent | `#71717a` | None | None | `#fafafa` text |
-| Danger | `#ef4444` | `#ffffff` | None | `glow-red` | Brighten 10% |
-| Icon | Transparent | `#71717a` | None | None | `#222225` bg |
-
-All buttons: `button-lg` (16px) or `button-md` (14px), uppercase, `rounded.md` (10px), padding 14px 28px (lg) or 10px 20px (md), transition 150ms.
-
-### Cards
-
-- **Surface:** `canvas-elevated` (#18181b)
-- **Border:** 1px `hairline` (#27272a)
-- **Radius:** `rounded.lg` (16px)
-- **Padding:** `spacing.xl` (32px)
-- **Shadow:** `card` by default, `card-hover` on interaction
-- **Inner spacing:** `spacing.md` (16px) between elements
-
-### Inputs
-
-- **Surface:** `surface-dark` (#1c1c1f)
-- **Border:** 1px `hairline` (#27272a)
-- **Focus border:** `primary` (#7c3aed) + `glow-primary`
-- **Radius:** `rounded.md` (10px)
-- **Padding:** 14px 16px
-- **Text:** `body` (#a1a1aa) default, `ink` (#fafafa) filled
-- **Placeholder:** `muted-soft` (#52525b)
-- **Label:** `label` (11px uppercase, #71717a), 8px gap above input
+## Components
 
 ### Status Badge
+Fixed position `top-4 right-4`. Four states:
+1. **OF** **FLINE** — gray bg, muted text, gray dot
+2. **CONNECTING** — gray bg, body text, cyan animated pulse dot
+3. **LOBBY** — purple translucent bg, purple text, static purple dot
+4. **ACTIVE** — green translucent bg, green text, animated green pulse dot
 
-- **Radius:** `rounded.pill`
-- **Padding:** 6px 14px
-- **Text:** `title-sm` (14px, 500, uppercase, 1px spacing)
-- **Dot:** 6px circle, left of text, with pulsing animation when active
-- **Colors:** Follow semantic palette (success=green, error=red, info=cyan)
+### Room Code Card
+Large centered container showing 4-character code. Each character independently rendered in JetBrains Mono 36px bold with purple glow text-shadow. Characters animate in with staggered `slideUp` effect (80ms delay per char). Container has glassmorphism look with border and subtle glow.
 
-### Room Code Display
+### Home Screen Cards
+Two large clickable cards. Share card gets purple icon container, Join card gets pink icon container. On hover, a gradient overlay fades in from the left with the respective accent color at 5% opacity. Cards get elevated border color on hover (purple for share, pink for join).
 
-- **Individual chars:** `room-code` (56px, 700, monospace, 8px letter-spacing)
-- **Char background:** `surface-dark` with 12px padding
-- **Per-char glow:** `badge-text` color with subtle `glow-primary`
-- **Container:** `canvas-elevated` card, centered
-- **Entrance animation:** Staggered slide-up, 80ms per char
+### Room Settings Modal
+Overlay with blur backdrop. Expandable sections each controlled by a checkbox:
+- **Password protect:** Checkbox + conditional text input
+- **Data limit:** Checkbox + conditional number input with "MB" suffix
+- **Time limit:** Checkbox + conditional number input with "minutes" suffix
+Bottom row: Cancel (secondary) + Create Room (primary) buttons.
 
----
+### Stats Panel
+During active connection, shows:
+- **Data transferred:** MB value with optional max. Progress bar (purple, 6px height)
+- **Session duration:** MM:SS format with optional max. Progress bar (cyan, 6px height)
+When either approaches 80%+, color shifts to amber with warning indicator.
 
-## Layout Structure (Mobile-First)
+## Do's and Don'ts
 
-```
-┌─────────────────────────┐
-│      [Status Bar]       │   Fixed top/right: connection status + timer
-│                         │
-│     ┌───────────┐       │
-│     │   LOGO     │       │   App icon/brand mark (or "INTERNET SHARE" h1)
-│     └───────────┘       │
-│                         │
-│   ┌─────────────────┐   │   Feature cards in centered column
-│   │  SHARE INTERNET  │   │   max-width: 720px, centered
-│   │  Create a room   │   │
-│   └─────────────────┘   │
-│                         │
-│   ┌─────────────────┐   │
-│   │  JOIN A ROOM    │   │
-│   │  Enter code     │   │
-│   └─────────────────┘   │
-│                         │
-│      [Footer/Info]      │
-└─────────────────────────┘
-```
+**Do:**
+- Keep the deep void background (`#0f0f12`) — it's the brand's most defining visual element
+- Use Orbitron for ALL headings, never Inter — it maintains the gaming identity
+- Separate modes visually: purple = share/host, pink = join/receive
+- Use the hairline border system for surface separation — no box-shadows on static elements
+- Animate room code characters on appearance — it signals "ready" to the user
+- Keep all text center-aligned — asymmetrical layouts break the cockpit panel illusion
 
-- **Single column**, centered layout
-- **Void background** with subtle radial gradient behind hero
-- **Responsive:** 100% width on mobile (padding: 16px), centered column max 480px on tablets, 720px on desktop
-- **No sidebar**, no header bar — full-screen lobby experience
-
----
-
-## Dark Mode
-
-This design system IS dark mode. There is no light mode. The canvas `#0f0f12` is the only canvas.
-
----
-
-## Accessibility
-
-- **Contrast ratio:** All text/color combinations meet WCAG AA (4.5:1) minimum
-- **Focus states:** `glow-primary` ring on focusable elements
-- **Font sizes:** Minimum 14px for UI elements (except labels at 11px, rare)
-- **Animation:** Can be reduced via `prefers-reduced-motion` — remove glow pulses and staggered entrances
+**Don't:**
+- Don't mix purple and pink on the same element — each mode has its own accent
+- Never use borders thicker than 1px — the thin hairline is intentional
+- Don't add shadow to non-interactive elements — use borders to create hierarchy
+- Don't overuse glow — only on: buttons (hover), room codes, input focus, and the two ambient background blobs
+- Avoid light mode — the entire brand is built on the dark canvas
