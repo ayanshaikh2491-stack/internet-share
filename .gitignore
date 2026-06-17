@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .env
-server/data/
+server/data/*-shm
+server/data/*-wal
 gh-create-workflow.py
 .github/
