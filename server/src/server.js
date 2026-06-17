@@ -13,14 +13,19 @@ import express from 'express';
 import { WebSocketServer } from 'ws';
 import { RoomManager } from './room-manager.js';
 import { Relay } from './relay.js';
+import { UserManager } from './user-manager.js';
 import { message, ServerMessage, ClientMessage } from './protocol.js';
 
 // ─── Config ────────────────────────────────────────────────────────────────
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const ROOM_TIMEOUT = parseInt(process.env.ROOM_TIMEOUT || '1800000', 10); // 30 min
 
+// ─── User Manager ───────────────────────────────────────────────────────────
+const userManager = new UserManager();
+
 // ─── Express (HTTP API) ────────────────────────────────────────────────────
 const app = express();
+app.use(express.json());
 
 app.get('/health', (req, res) => {
   res.json({
@@ -33,6 +38,38 @@ app.get('/health', (req, res) => {
 
 app.get('/stats', (req, res) => {
   res.json(relay.getStats());
+});
+
+// ─── Auth API ───────────────────────────────────────────────────────────────
+app.post('/api/register', (req, res) => {
+  const { email, password } = req.body || {};
+  const result = userManager.register(email, password);
+  if (result.error) {
+    return res.status(400).json({ error: result.error });
+  }
+  res.json({ user: result.user, token: result.token });
+});
+
+app.post('/api/login', (req, res) => {
+  const { email, password } = req.body || {};
+  const result = userManager.login(email, password);
+  if (result.error) {
+    return res.status(401).json({ error: result.error });
+  }
+  res.json({ user: result.user, token: result.token });
+});
+
+app.post('/api/profile', (req, res) => {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  const token = auth.slice(7);
+  const user = userManager.authenticate(token);
+  if (!user) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+  res.json({ user: { id: user.id, email: user.email, createdAt: user.createdAt } });
 });
 
 // ─── Self-Keepalive ─────────────────────────────────────────────────────────
@@ -59,7 +96,7 @@ const roomManager = new RoomManager({
   onPairReady: (room) => relay.onPairReady(room),
 });
 
-const relay = new Relay(roomManager);
+const relay = new Relay(roomManager, userManager);
 
 // Periodic cleanup of stale rooms + stats tick
 setInterval(() => roomManager.cleanup(), 60 * 1000);

@@ -2,13 +2,15 @@
  * Relay — handles multi-peer data relay for internet sharing.
  * Donor sends → broadcast to all room peers.
  * Peer sends → forward to donor only.
+ * Requires WebSocket auth via 'auth' message.
  */
 
 import { message, ServerMessage } from './protocol.js';
 
 export class Relay {
-  constructor(roomManager) {
+  constructor(roomManager, userManager) {
     this.roomManager = roomManager;
+    this.userManager = userManager;
     this.bytesRelayed = 0;
     this.messagesRelayed = 0;
   }
@@ -59,6 +61,26 @@ export class Relay {
       return;
     }
 
+    // ─── Auth message (no auth required) ─────────────────────────────────
+    if (parsed.type === 'auth') {
+      const token = parsed.token;
+      const user = this.userManager.authenticate(token);
+      if (!user) {
+        ws.send(message(ServerMessage.ERROR, { reason: 'Invalid token' }));
+        return;
+      }
+      ws._user = user;
+      ws.send(message(ServerMessage.AUTH_OK, { userId: user.id, email: user.email }));
+      console.log(`[WS] Auth OK — ${user.email}`);
+      return;
+    }
+
+    // ─── All other messages require auth ─────────────────────────────────
+    if (!ws._user) {
+      ws.send(message(ServerMessage.ERROR, { reason: 'Not authenticated' }));
+      return;
+    }
+
     switch (parsed.type) {
       case 'create_room': {
         const settings = {
@@ -68,7 +90,7 @@ export class Relay {
         };
         const { roomId, roomCode, config } = this.roomManager.createRoom(ws, settings);
         ws.send(message(ServerMessage.ROOM_CREATED, { roomId, roomCode, config }));
-        console.log(`[Room] Created — code: ${roomCode}`);
+        console.log(`[Room] Created — code: ${roomCode} by ${ws._user.email}`);
         break;
       }
 
@@ -81,7 +103,7 @@ export class Relay {
         ws.send(message(ServerMessage.ROOM_JOINED, {
           roomId: room.id, roomCode: room.code, role: 'receiver', config: room.config,
         }));
-        console.log(`[Room] Joined — code: ${room.code}`);
+        console.log(`[Room] Joined — code: ${room.code} by ${ws._user.email}`);
         break;
       }
 

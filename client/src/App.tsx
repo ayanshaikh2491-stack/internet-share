@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { TunnelClient } from './services/tunnel'
+import { auth } from './services/auth'
+import type { AuthUser } from './services/auth'
 import type { ConnectionState, ServerMessage, RoomConfig, RoomUpdate } from './services/tunnel'
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'ws://localhost:3001'
@@ -26,6 +28,7 @@ const KeyIcon = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" s
 const LockIcon = () => <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>;
 const StopIcon = () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5.25 7.5A2.25 2.25 0 017.5 5.25h9a2.25 2.25 0 012.25 2.25v9a2.25 2.25 0 01-2.25 2.25h-9a2.25 2.25 0 01-2.25-2.25v-9z"/></svg>;
 const WifiIcon = () => <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.746-5.747 15.06-5.747 20.808 0"/></svg>;
+const MailIcon = () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>;
 
 const StatusBadge = ({ state }: { state: ConnectionState }) => {
   const c: Record<string, { l: string; cls: string; dot: string }> = {
@@ -42,6 +45,74 @@ const StatusBadge = ({ state }: { state: ConnectionState }) => {
   );
 };
 
+// ─── Auth Screen ────────────────────────────────────────────────────────────
+const AuthScreen = ({ onAuth }: { onAuth: () => void }) => {
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    setError(null);
+    if (!email.trim() || !password) { setError('Please fill in all fields'); return; }
+    setLoading(true);
+    const fn = mode === 'login' ? auth.login.bind(auth) : auth.register.bind(auth);
+    const result = await fn(email.trim(), password);
+    setLoading(false);
+    if (!result.success) { setError(result.error || 'Something went wrong'); return; }
+    onAuth();
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen" style={{ background: S.white }}>
+      <div className="w-full max-w-sm px-6 py-12">
+        <div className="w-14 h-14 mx-auto mb-6 flex items-center justify-center rounded" style={{ background: 'rgba(83,58,253,0.05)', border: '1px solid rgba(83,58,253,0.2)' }}>
+          <WifiIcon />
+        </div>
+        <h1 className="text-3xl font-light text-center mb-1" style={{ color: S.navy, letterSpacing: '-0.72px' }}>ShareNet</h1>
+        <p className="text-[14px] text-center mb-8" style={{ color: S.body, fontWeight: 300 }}>
+          {mode === 'login' ? 'Sign in to your account' : 'Create a new account'}
+        </p>
+
+        {error && <div className="mb-4 p-3 rounded text-[12px]" style={{ background: 'rgba(234,34,97,0.05)', border: '1px solid rgba(234,34,97,0.15)', color: S.ruby }}>{error}</div>}
+
+        <div className="space-y-4">
+          <div>
+            <p className="text-[11px] font-medium mb-1.5" style={{ color: S.label }}>Email</p>
+            <div className="flex items-center border px-3 py-2.5 gap-2" style={{ borderColor: S.border, borderRadius: '4px' }}>
+              <MailIcon />
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com"
+                className="w-full text-[14px] bg-transparent text-[#061b31] placeholder:text-[#64748d] focus:outline-none"
+                onKeyDown={e => e.key === 'Enter' && handleSubmit()} />
+            </div>
+          </div>
+          <div>
+            <p className="text-[11px] font-medium mb-1.5" style={{ color: S.label }}>Password</p>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Min 4 characters"
+              className="w-full px-3 py-2.5 text-[14px] bg-white border text-[#061b31] placeholder:text-[#64748d] focus:outline-none"
+              style={{ borderColor: S.border, borderRadius: '4px' }}
+              onKeyDown={e => e.key === 'Enter' && handleSubmit()} />
+          </div>
+          <button onClick={handleSubmit} disabled={loading}
+            className="w-full py-2.5 text-[14px] font-normal text-white disabled:opacity-50"
+            style={{ borderRadius: '4px', background: S.purple }}>
+            {loading ? 'Please wait…' : (mode === 'login' ? 'Sign In' : 'Create Account')}
+          </button>
+        </div>
+
+        <p className="mt-6 text-center text-[13px]" style={{ color: S.body }}>
+          {mode === 'login' ? (
+            <>No account? <button onClick={() => { setMode('signup'); setError(null); }} className="font-medium" style={{ color: S.purple }}>Sign up</button></>
+          ) : (
+            <>Already have an account? <button onClick={() => { setMode('login'); setError(null); }} className="font-medium" style={{ color: S.purple }}>Sign in</button></>
+          )}
+        </p>
+      </div>
+    </div>
+  );
+};
+
 // ─── Create Room Modal ──────────────────────────────────────────────────────
 const CreateRoomModal = ({ open, onClose, onConfirm }: { open: boolean; onClose: () => void; onConfirm: (s: RoomConfig) => void }) => {
   const [pw, setPw] = useState(''); const [data, setData] = useState(''); const [time, setTime] = useState('');
@@ -53,7 +124,6 @@ const CreateRoomModal = ({ open, onClose, onConfirm }: { open: boolean; onClose:
       <div className="w-full max-w-sm bg-white border p-6" style={{ borderColor: S.border, borderRadius: '5px', boxShadow: `${S.shadow} 0px 30px 60px -12px, ${S.shadowB} 0px 18px 36px -18px` }} onClick={e => e.stopPropagation()}>
         <h2 className="text-[22px] font-light mb-1" style={{ color: S.navy, letterSpacing: '-0.22px' }}>New Room</h2>
         <p className="text-[14px] mb-6" style={{ color: S.body, fontWeight: 300 }}>Set optional limits and a password</p>
-
         <div className="mb-5">
           <label className="flex items-center gap-3 cursor-pointer mb-3">
             <input type="checkbox" checked={hasPw} onChange={e => setHasPw(e.target.checked)} className="accent-[#533afd] w-4 h-4 rounded border-[#e5edf5]" />
@@ -63,7 +133,6 @@ const CreateRoomModal = ({ open, onClose, onConfirm }: { open: boolean; onClose:
             className="w-full px-3 py-2 text-[14px] bg-white border text-[#061b31] placeholder:text-[#64748d] focus:outline-none"
             style={{ borderColor: S.border, borderRadius: '4px', fontWeight: 300 }} />}
         </div>
-
         <div className="mb-5">
           <label className="flex items-center gap-3 cursor-pointer mb-3">
             <input type="checkbox" checked={hasData} onChange={e => setHasData(e.target.checked)} className="accent-[#533afd] w-4 h-4 rounded border-[#e5edf5]" />
@@ -76,7 +145,6 @@ const CreateRoomModal = ({ open, onClose, onConfirm }: { open: boolean; onClose:
             <span className="text-[12px]" style={{ color: S.body, fontWeight: 300 }}>MB</span>
           </div>}
         </div>
-
         <div className="mb-6">
           <label className="flex items-center gap-3 cursor-pointer mb-3">
             <input type="checkbox" checked={hasTime} onChange={e => setHasTime(e.target.checked)} className="accent-[#533afd] w-4 h-4 rounded border-[#e5edf5]" />
@@ -89,7 +157,6 @@ const CreateRoomModal = ({ open, onClose, onConfirm }: { open: boolean; onClose:
             <span className="text-[12px]" style={{ color: S.body, fontWeight: 300 }}>min</span>
           </div>}
         </div>
-
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 py-2.5 text-[14px] font-normal bg-transparent border" style={{ borderRadius: '4px', borderColor: S.purpleLight, color: S.purple }}>Cancel</button>
           <button onClick={() => onConfirm({ password: hasPw && pw ? pw : null, maxDataMB: hasData && data ? parseFloat(data) : null, maxTimeMinutes: hasTime && time ? parseInt(time) : null })}
@@ -112,15 +179,18 @@ const PeerBadge = ({ data, label }: { data: number; label: string }) => (
 );
 
 // ─── Home Screen ────────────────────────────────────────────────────────────
-const Home = ({ onSelect }: { onSelect: (mode: 'donor' | 'receiver') => void }) => (
+const Home = ({ onSelect, user, onLogout }: { onSelect: (mode: 'donor' | 'receiver') => void; user: AuthUser; onLogout: () => void }) => (
   <div className="flex flex-col items-center justify-center min-h-screen" style={{ background: S.white }}>
+    <div className="absolute top-6 right-6 flex items-center gap-3">
+      <span className="text-[11px]" style={{ color: S.body }}>{user.email}</span>
+      <button onClick={onLogout} className="text-[11px] font-medium px-2.5 py-1 rounded" style={{ border: `1px solid ${S.border}`, borderRadius: '4px', color: S.body }}>Sign out</button>
+    </div>
     <div className="w-full max-w-md px-6 py-12 text-center">
       <div className="w-14 h-14 mx-auto mb-6 flex items-center justify-center rounded" style={{ background: 'rgba(83,58,253,0.05)', border: '1px solid rgba(83,58,253,0.2)' }}>
         <WifiIcon />
       </div>
       <h1 className="text-4xl font-light mb-2" style={{ color: S.navy, letterSpacing: '-0.96px' }}>ShareNet</h1>
       <p className="text-[16px] mb-10" style={{ color: S.body, fontWeight: 300 }}>Share your internet. Receive from others. Peer-to-peer relay.</p>
-
       <div className="space-y-4">
         <button onClick={() => onSelect('donor')}
           className="w-full p-5 bg-white text-left rounded transition-all hover:shadow-md"
@@ -133,7 +203,6 @@ const Home = ({ onSelect }: { onSelect: (mode: 'donor' | 'receiver') => void }) 
             </div>
           </div>
         </button>
-
         <button onClick={() => onSelect('receiver')}
           className="w-full p-5 bg-white text-left rounded transition-all hover:shadow-md"
           style={{ border: `1px solid ${S.border}`, borderRadius: '5px', boxShadow: `${S.shadow} 0px 14px 28px -12px, ${S.shadowB} 0px 8px 18px -8px` }}>
@@ -146,7 +215,6 @@ const Home = ({ onSelect }: { onSelect: (mode: 'donor' | 'receiver') => void }) 
           </div>
         </button>
       </div>
-
       <div className="mt-10 inline-flex items-center gap-2 px-3 py-1.5 rounded" style={{ background: '#f6f9fc', border: `1px solid ${S.border}` }}>
         <span className="w-[6px] h-[6px] rounded-[1px] bg-[#533afd] animate-pulse" />
         <span className="text-[10px]" style={{ color: S.body, fontWeight: 500 }}>Multi-room &bull; Multi-peer &bull; Real-time relay</span>
@@ -235,16 +303,13 @@ const ReceiverJoin = ({ tunnel, onBack }: { tunnel: TunnelClient; onBack: () => 
           </button>
         </div>
       </div>
-
       <div className="flex-1 max-w-lg mx-auto w-full px-4 py-6">
         <h2 className="text-[26px] font-light mb-1" style={{ color: S.navy, letterSpacing: '-0.26px' }}>Join a Room</h2>
         <p className="text-[14px] mb-6" style={{ color: S.body, fontWeight: 300 }}>{availableRooms.length} room{availableRooms.length !== 1 ? 's' : ''} available</p>
-
         {error && <div className="mb-4 p-3 rounded text-[12px]" style={{ background: 'rgba(234,34,97,0.05)', border: '1px solid rgba(234,34,97,0.15)', color: S.ruby }}>{error}</div>}
-
         {availableRooms.length > 0 && !showManual && (
           <div className="space-y-3 mb-6">
-            {availableRooms.map(room => (
+            {availableRooms.map((room: any) => (
               <button key={room.code} onClick={() => handleRoomClick(room)}
                 className="w-full p-4 bg-white text-left rounded transition-all hover:shadow-md"
                 style={{ border: `1px solid ${S.border}`, borderRadius: '5px', boxShadow: `${S.shadow} 0px 14px 28px -12px, ${S.shadowB} 0px 8px 18px -8px` }}>
@@ -267,7 +332,6 @@ const ReceiverJoin = ({ tunnel, onBack }: { tunnel: TunnelClient; onBack: () => 
             ))}
           </div>
         )}
-
         {availableRooms.length === 0 && !showManual && (
           <div className="text-center py-10">
             <div className="mb-3" style={{ fontSize: '32px' }}>🔌</div>
@@ -275,7 +339,6 @@ const ReceiverJoin = ({ tunnel, onBack }: { tunnel: TunnelClient; onBack: () => 
             <p className="text-[12px] mt-1" style={{ color: S.body }}>Waiting for donors to create rooms…</p>
           </div>
         )}
-
         {(showManual || availableRooms.length === 0) && (
           <div className="pt-2">
             <input type="text" value={code} onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4))}
@@ -303,20 +366,62 @@ const ReceiverJoin = ({ tunnel, onBack }: { tunnel: TunnelClient; onBack: () => 
 
 // ─── Main App ───────────────────────────────────────────────────────────────
 function App() {
+  const [authed, setAuthed] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [screen, setScreen] = useState<'home' | 'donor' | 'receiver'>('home');
   const [cs, setCs] = useState<ConnectionState>('disconnected');
   const tunnelRef = useRef<TunnelClient | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
 
+  // Check auth state on mount
   useEffect(() => {
-    const tunnel = new TunnelClient(SERVER_URL, { onMessage: () => {}, onStateChange: (s: ConnectionState) => setCs(s) });
+    if (auth.isAuthenticated()) {
+      setAuthed(true);
+      setUser(auth.getUser());
+    }
+    setLoading(false);
+  }, []);
+
+  // Connect tunnel only after auth
+  useEffect(() => {
+    if (!authed) return;
+    const token = auth.getToken() || undefined;
+    const tunnel = new TunnelClient(SERVER_URL, {
+      onMessage: () => {},
+      onStateChange: (s: ConnectionState) => setCs(s),
+      token,
+    });
     tunnelRef.current = tunnel;
     tunnel.connect();
     return () => tunnel.disconnect();
-  }, []);
+  }, [authed]);
+
+  const handleAuth = () => {
+    setAuthed(true);
+    setUser(auth.getUser());
+  };
+
+  const handleLogout = () => {
+    auth.logout();
+    setAuthed(false);
+    setUser(null);
+    setScreen('home');
+    if (tunnelRef.current) tunnelRef.current.disconnect();
+  };
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center" style={{ background: S.white }}>
+      <div className="w-6 h-6 rounded-[2px]" style={{ border: `2px solid ${S.border}`, borderTopColor: S.purple }} />
+    </div>;
+  }
+
+  if (!authed) {
+    return <AuthScreen onAuth={handleAuth} />;
+  }
 
   return (
     <div style={{ background: S.white, minHeight: '100vh' }}>
-      {screen === 'home' && <Home onSelect={(m) => { setScreen(m); if (m === 'donor') setTimeout(() => tunnelRef.current?.getRooms(), 500); }} />}
+      {screen === 'home' && <Home onSelect={(m) => { setScreen(m); if (m === 'donor') setTimeout(() => tunnelRef.current?.getRooms(), 500); }} user={user!} onLogout={handleLogout} />}
       {screen === 'donor' && <DonorDashboard tunnel={tunnelRef.current!} cs={cs} onBack={() => { setScreen('home'); tunnelRef.current?.leaveAll(); }} />}
       {screen === 'receiver' && <ReceiverJoin tunnel={tunnelRef.current!} onBack={() => setScreen('home')} />}
       <div className="fixed bottom-0 left-0 right-0 text-center py-3 text-[10px] font-medium" style={{ borderTop: `1px solid ${S.border}`, background: S.white, color: S.body }}>
@@ -359,8 +464,8 @@ function DonorDashboard({ tunnel, cs, onBack }: { tunnel: TunnelClient; cs: Conn
           </div>
           <div className="flex flex-wrap gap-2 mb-5">
             <span className="inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-1"
-              style={{ background: S.greenBg, color: S.greenText, border: `1px solid ${S.greenBorder}`, borderRadius: '4px' }}>
-              <span className="w-[4px] h-[4px] rounded-[1px] bg-[#15be53] animate-pulse" />
+              style={{ background: detailView.status === 'active' ? S.greenBg : '#f6f9fc', color: detailView.status === 'active' ? S.greenText : S.body, border: `1px solid ${detailView.status === 'active' ? S.greenBorder : S.border}`, borderRadius: '4px' }}>
+              <span className={`w-[4px] h-[4px] rounded-[1px] ${detailView.status === 'active' ? 'bg-[#15be53] animate-pulse' : 'bg-[#64748d]'}`} />
               {detailView.status === 'active' ? `${detailView.peerCount || 0} peer${detailView.peerCount !== 1 ? 's' : ''}` : 'WAITING'}
             </span>
             {detailView.config?.password && <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1" style={{ background: '#f6f9fc', border: `1px solid ${S.border}`, borderRadius: '4px' }}><LockIcon /> Password</span>}
@@ -419,7 +524,7 @@ function DonorDashboard({ tunnel, cs, onBack }: { tunnel: TunnelClient; cs: Conn
         <CreateRoomModal open={showCreateM} onClose={() => setShowCreateM(false)} onConfirm={(config) => createRoom(config)} />
         {roomsList.length === 0 && <div className="text-center py-12"><p className="text-[14px]" style={{ color: S.body, fontWeight: 300 }}>No rooms yet.</p></div>}
         <div className="space-y-4">
-          {roomsList.map(room => (
+          {roomsList.map((room: any) => (
             <div key={room.code} className="p-5 bg-white rounded" style={{ border: `1px solid ${S.border}`, borderRadius: '5px', boxShadow: `${S.shadow} 0px 14px 28px -12px, ${S.shadowB} 0px 8px 18px -8px` }}>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xl font-bold tracking-widest" style={{ color: S.navy, fontFamily: "'Source Code Pro', monospace" }}>{room.code}</span>

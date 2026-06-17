@@ -24,6 +24,7 @@ export const ServerMessage = {
   PONG: 'pong',
   DATA: 'data',
   ERROR: 'error',
+  AUTH_OK: 'auth_ok',
 };
 
 export const DEFAULT_ROOM_SETTINGS = {

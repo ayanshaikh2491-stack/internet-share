@@ -28,12 +28,15 @@ export class TunnelClient {
   private onStateChange: (cs: ConnectionState) => void;
   private state: ConnectionState = 'disconnected';
   private pingTimer: ReturnType<typeof setInterval> | null = null;
+  private token: string | null = null;
 
   constructor(serverUrl: string, handlers: {
     onMessage: (msg: ServerMessage) => void;
     onStateChange: (cs: ConnectionState) => void;
+    token?: string | null;
   }) {
     this.serverUrl = serverUrl;
+    this.token = handlers.token || null;
     this.onMessage = handlers.onMessage;
     this.onStateChange = handlers.onStateChange;
   }
@@ -55,7 +58,10 @@ export class TunnelClient {
     }
 
     this.ws.onopen = () => {
-      this.setState('connected');
+      // Send auth immediately
+      if (this.token) {
+        this.ws!.send(JSON.stringify({ type: 'auth', token: this.token }));
+      }
       this.startPing();
     };
 
@@ -63,6 +69,15 @@ export class TunnelClient {
       try {
         const msg = JSON.parse(event.data);
         if (msg.type === 'pong') return;
+        // Handle auth response internally
+        if (msg.type === 'auth_ok') {
+          this.setState('connected');
+          return;
+        }
+        if (msg.type === 'error' && msg.reason === 'Invalid token') {
+          this.onMessage(msg);
+          return;
+        }
         this.onMessage(msg);
       } catch {
         // Binary data — handled separately
