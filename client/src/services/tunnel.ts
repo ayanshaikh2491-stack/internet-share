@@ -166,3 +166,14 @@ export class TunnelClient {
     if (this.pingTimer) { clearInterval(this.pingTimer); this.pingTimer = null; }
   }
 }
+
+// Global tunnel instance for shared access across components
+let _globalTunnel: TunnelClient | null = null;
+
+export function setGlobalTunnel(t: TunnelClient | null) {
+  _globalTunnel = t;
+}
+
+export function getTunnel(): TunnelClient | null {
+  return _globalTunnel;
+}

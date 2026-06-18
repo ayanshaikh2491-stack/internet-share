@@ -1,4 +1,4 @@
-import { Shield, Globe, Coins, ArrowRight, Server, Radio, Cpu, LogOut } from 'lucide-react';
+import { LogOut, Wifi, Share2, Cpu, Globe, Users, Zap } from 'lucide-react';
 import type { UserProfile, ActiveView } from '../types';
 
 interface HomeScreenProps {
@@ -9,204 +9,253 @@ interface HomeScreenProps {
 
 export default function HomeScreen({ user, onSelectView, onLogout }: HomeScreenProps) {
   return (
-    <div id="home-screen-root" className="bg-[#ffffff] flex flex-col w-full">
-      {/* Top Professional Header matching High Density style */}
-      <header className="h-16 border-b border-[#e5edf5] px-6 md:px-8 flex items-center justify-between bg-white shrink-0 sticky top-0 z-10">
-        <h1 className="text-[20px] md:text-[22px] font-light text-[#061b31] tracking-[-0.5px]">Dashboard Overview</h1>
-        <div className="flex items-center gap-3">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#f0f9f4] text-[#15be53] text-[11px] font-medium rounded">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#15be53] animate-pulse" />
-            <span>Active & Operational</span>
+    <div className="min-h-screen bg-[#0f0f12] text-white flex flex-col">
+      {/* ─── Header ────────────────────────────────────────────── */}
+      <header className="bg-gradient-to-r from-[#1a1a2e] to-[#16213e] border-b border-[#7c3aed]/30 px-6 md:px-8 py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#7c3aed] to-[#06b6d4] flex items-center justify-center shadow-lg shadow-[#7c3aed]/20">
+              <Share2 className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-lg md:text-xl" style={{ fontFamily: "'Orbitron', sans-serif", color: '#7c3aed', letterSpacing: '0.05em' }}>
+                SHARENET
+              </h1>
+              <p className="text-[10px] text-gray-500 tracking-wider uppercase">Internet Sharing Protocol</p>
+            </div>
           </div>
-          <button
-            onClick={onLogout}
-            className="text-[11px] font-medium px-2.5 py-1 border border-[#e5edf5] rounded-[4px] text-[#64748d] hover:bg-[#f8fafc] transition-all cursor-pointer flex items-center gap-1.5"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Sign out</span>
-          </button>
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#0f0f12] border border-white/5">
+              <div className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse" style={{ boxShadow: '0 0 6px #10b981' }} />
+              <span className="text-xs text-gray-400">{user.email}</span>
+            </div>
+            <button
+              onClick={onLogout}
+              className="px-3 py-2 rounded-lg text-xs font-medium text-gray-400 bg-white/5 border border-white/10 hover:bg-white/10 hover:text-[#ec4899] transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Disconnect</span>
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main id="main-content" className="flex-grow max-w-7xl w-full mx-auto px-6 py-10 md:py-16 space-y-12">
-        {/* Pitch Hero Header */}
-        <div id="hero-header" className="max-w-2xl">
-          <h1 className="text-[40px] md:text-[48px] font-light tracking-[-0.96px] text-[#061b31] leading-[1.1]">
-            Global Decentralized <br />
-            <span className="text-[#533afd] font-normal">Network Resource Gateway</span>
+      {/* ─── Main Content ──────────────────────────────────────── */}
+      <main className="flex-1 max-w-6xl w-full mx-auto px-4 md:px-8 py-12 md:py-20">
+        {/* Hero Section */}
+        <div className="text-center mb-16 animate-[slideUp_0.5s_ease-out]">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#7c3aed]/10 border border-[#7c3aed]/20 text-[#7c3aed] text-xs font-medium mb-6">
+            <Zap className="w-3.5 h-3.5" />
+            <span>Peer-to-peer network active</span>
+          </div>
+          <h1
+            className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight"
+            style={{ fontFamily: "'Orbitron', sans-serif" }}
+          >
+            <span className="text-white">Choose your</span>
+            <br />
+            <span className="bg-gradient-to-r from-[#7c3aed] via-[#06b6d4] to-[#7c3aed] bg-clip-text text-transparent">
+              role
+            </span>
           </h1>
-          <p className="mt-4 text-[14px] font-light text-[#64748d] leading-relaxed max-w-xl">
-            Rent out unused downstream connection capacities to peer clients or route localized connections over verified global nodes using Stripe-grade automated accounting pipelines.
+          <p className="text-gray-500 text-sm md:text-base max-w-lg mx-auto font-light">
+            Share your internet connection or browse the web through a peer's network
           </p>
         </div>
 
-        {/* Global Pool & Performance Metrics Block */}
-        <div 
-          id="global-metrics" 
-          className="grid grid-cols-1 md:grid-cols-4 border border-[#e5edf5] rounded-[5px] bg-white divide-y md:divide-y-0 md:divide-x divide-[#e5edf5] shadow-[0px_15px_35px_0px_rgba(23,23,23,0.03)]"
-        >
-          <div className="p-5 flex items-center gap-4">
-            <div className="p-3 bg-[#e5edf5]/30 text-[#533afd] rounded-full">
-              <Radio className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-wider text-[#273951]">Total Live Traffic</p>
-              <h4 className="text-[20px] font-light text-[#061b31]">482.91 Gbps <span className="text-xs text-[#15be53] font-medium">▲ 14%</span></h4>
-            </div>
-          </div>
-
-          <div className="p-5 flex items-center gap-4">
-            <div className="p-3 bg-[#e5edf5]/30 text-[#533afd] rounded-full">
-              <Server className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-wider text-[#273951]">Active Global Nodes</p>
-              <h4 className="text-[20px] font-light text-[#061b31]">12,419 <span className="text-xs text-[#64748d]">Live Swarm</span></h4>
-            </div>
-          </div>
-
-          <div className="p-5 flex items-center gap-4">
-            <div className="p-3 bg-[#e5edf5]/30 text-[#533afd] rounded-full">
-              <Shield className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-wider text-[#273951]">Verified Integrity</p>
-              <h4 className="text-[20px] font-light text-[#061b31]">99.98% <span className="text-xs text-[#15be53] font-medium">Uptime Guarantee</span></h4>
-            </div>
-          </div>
-
-          <div className="p-5 flex items-center gap-4">
-            <div className="p-3 bg-[#e5edf5]/30 text-[#533afd] rounded-full">
-              <Coins className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-wider text-[#273951]">Your Accrued Account</p>
-              <h4 className="text-[20px] font-light text-[#061b31]">${user.totalEarnings.toFixed(2)} USD</h4>
-            </div>
-          </div>
-        </div>
-
-        {/* Dual Mode Choices */}
-        <div id="role-selections" className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
-          
-          {/* Option A: Donor Card */}
-          <div 
+        {/* ─── Two Cards ────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 max-w-4xl mx-auto">
+          {/* Card 1: Share Internet (Donor) */}
+          <div
             id="card-mode-donor"
-            className="group bg-white border border-[#e5edf5] rounded-[5px] p-8 shadow-[0px_15px_35px_0px_rgba(23,23,23,0.06),_0px_18px_36px_-18px_rgba(0,0,0,0.08)] hover:border-[#533afd]/50 transition-all duration-300 flex flex-col justify-between"
+            className="group relative bg-[#1a1a2e] border border-[#7c3aed]/20 rounded-2xl p-8 hover:border-[#7c3aed]/50 transition-all duration-300 flex flex-col"
+            style={{
+              boxShadow: '0 4px 30px rgba(0, 0, 0, 0.3)',
+            }}
           >
-            <div className="space-y-6">
-              <div className="flex justify-between items-start">
-                <div className="p-3 rounded bg-[#533afd]/10 text-[#533afd] group-hover:scale-105 transition-transform duration-200">
-                  <Cpu className="w-6 h-6" />
+            {/* Glow effect on hover */}
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-[#7c3aed]/0 via-[#7c3aed]/5 to-[#06b6d4]/0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl pointer-events-none" />
+
+            <div className="relative z-10 flex-1 flex flex-col">
+              {/* Icon + Badge */}
+              <div className="flex justify-between items-start mb-6">
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#7c3aed]/20 to-[#06b6d4]/10 border border-[#7c3aed]/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                  <Cpu className="w-7 h-7 text-[#7c3aed]" />
                 </div>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider rounded bg-[#533afd]/10 text-[#533afd] border border-[#533afd]/10">
-                  Provide Nodes
+                <span className="px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-full bg-[#7c3aed]/10 text-[#7c3aed] border border-[#7c3aed]/20">
+                  Donor
                 </span>
               </div>
 
-              <div className="space-y-2">
-                <h3 className="text-[24px] font-light text-[#061b31] tracking-tight group-hover:text-[#533afd] transition-colors">
-                  Share Bandwidth (Donor)
-                </h3>
-                <p className="text-[14px] font-light text-[#64748d] leading-relaxed">
-                  Contribute your surplus localized bandwidth. Monetize idle residential networks continuously. Our background socket maintains reliable and safe relay pipelines for validated corporations.
-                </p>
+              {/* Title */}
+              <h3
+                className="text-2xl md:text-3xl font-bold mb-3 text-white group-hover:text-[#7c3aed] transition-colors"
+                style={{ fontFamily: "'Orbitron', sans-serif" }}
+              >
+                Share Internet
+              </h3>
+              <p className="text-sm text-gray-400 leading-relaxed mb-6 flex-1">
+                Let others use your internet connection. Earn rewards and help build a decentralized mesh network.
+              </p>
+
+              {/* Features */}
+              <div className="space-y-3 mb-8">
+                <div className="flex items-center gap-3 text-sm text-gray-400">
+                  <div className="w-5 h-5 rounded-full bg-[#7c3aed]/10 flex items-center justify-center">
+                    <Wifi className="w-3 h-3 text-[#06b6d4]" />
+                  </div>
+                  <span>Unlimited bandwidth sharing</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-gray-400">
+                  <div className="w-5 h-5 rounded-full bg-[#7c3aed]/10 flex items-center justify-center">
+                    <Shield className="w-3 h-3 text-[#06b6d4]" />
+                  </div>
+                  <span>Secure encrypted relays</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-gray-400">
+                  <div className="w-5 h-5 rounded-full bg-[#7c3aed]/10 flex items-center justify-center">
+                    <Zap className="w-3 h-3 text-[#10b981]" />
+                  </div>
+                  <span>Real-time connection tracking</span>
+                </div>
               </div>
 
-              <div className="border-t border-[#e5edf5] pt-5 space-y-3">
-                <div className="flex items-center gap-2 text-[13px] font-light text-[#64748d]">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#15be53]" />
-                  <span>Configurable upload rates up to 100 Mbps</span>
-                </div>
-                <div className="flex items-center gap-2 text-[13px] font-light text-[#64748d]">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#15be53]" />
-                  <span>Instant payouts directly in USD credits ($0.15 / GB)</span>
-                </div>
-                <div className="flex items-center gap-2 text-[13px] font-light text-[#64748d]">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#15be53]" />
-                  <span>Real-time connections visual tracker</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-8">
+              {/* CTA */}
               <button
                 id="btn-goto-donor"
                 onClick={() => onSelectView('donor')}
-                className="w-full px-6 py-3.5 text-[14px] font-normal text-white bg-[#533afd] rounded-[4px] hover:opacity-95 transition-all duration-150 active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer shadow-[0_4px_6px_rgba(50,50,93,0.11)]"
+                className="w-full py-4 rounded-xl text-white font-semibold flex items-center justify-center gap-3 transition-all duration-200 active:scale-[0.98] cursor-pointer relative overflow-hidden group/btn"
+                style={{
+                  background: 'linear-gradient(135deg, #7c3aed, #06b6d4)',
+                  boxShadow: '0 4px 20px rgba(124, 58, 237, 0.3)',
+                }}
               >
-                <span>Launch Sharing Dashboard</span>
-                <ArrowRight className="w-4 h-4" />
+                <span className="relative z-10">Start Sharing</span>
+                <Share2 className="w-4 h-4 relative z-10" />
+                <div className="absolute inset-0 bg-gradient-to-r from-[#7c3aed] to-[#8b5cf6] opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300" />
               </button>
             </div>
           </div>
 
-          {/* Option B: Receiver Card */}
-          <div 
+          {/* Card 2: Join Network (Receiver) */}
+          <div
             id="card-mode-receiver"
-            className="group bg-white border border-[#e5edf5] rounded-[5px] p-8 shadow-[0px_15px_35px_0px_rgba(23,23,23,0.06),_0px_18px_36px_-18px_rgba(0,0,0,0.08)] hover:border-[#533afd]/50 transition-all duration-300 flex flex-col justify-between"
+            className="group relative bg-[#1a1a2e] border border-[#ec4899]/20 rounded-2xl p-8 hover:border-[#ec4899]/50 transition-all duration-300 flex flex-col"
+            style={{
+              boxShadow: '0 4px 30px rgba(0, 0, 0, 0.3)',
+            }}
           >
-            <div className="space-y-6">
-              <div className="flex justify-between items-start">
-                <div className="p-3 rounded bg-[#533afd]/10 text-[#533afd] group-hover:scale-105 transition-transform duration-200">
-                  <Globe className="w-6 h-6" />
+            {/* Glow effect on hover */}
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-[#ec4899]/0 via-[#ec4899]/5 to-[#7c3aed]/0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl pointer-events-none" />
+
+            <div className="relative z-10 flex-1 flex flex-col">
+              {/* Icon + Badge */}
+              <div className="flex justify-between items-start mb-6">
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#ec4899]/20 to-[#7c3aed]/10 border border-[#ec4899]/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                  <Globe className="w-7 h-7 text-[#ec4899]" />
                 </div>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider rounded bg-slate-100 text-[#061b31] border border-slate-200">
-                  Acquire Pipeline
+                <span className="px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-full bg-[#ec4899]/10 text-[#ec4899] border border-[#ec4899]/20">
+                  Receiver
                 </span>
               </div>
 
-              <div className="space-y-2">
-                <h3 className="text-[24px] font-light text-[#061b31] tracking-tight group-hover:text-[#533afd] transition-colors">
-                  Receive Connection (Client)
-                </h3>
-                <p className="text-[14px] font-light text-[#64748d] leading-relaxed">
-                  Route applets, code structures, or workflows through standard geographical residential backdoors. Ideal for scraping localization datasets or testing regional latency models.
-                </p>
+              {/* Title */}
+              <h3
+                className="text-2xl md:text-3xl font-bold mb-3 text-white group-hover:text-[#ec4899] transition-colors"
+                style={{ fontFamily: "'Orbitron', sans-serif" }}
+              >
+                Join Network
+              </h3>
+              <p className="text-sm text-gray-400 leading-relaxed mb-6 flex-1">
+                Connect through a peer's internet tunnel. Browse the web anonymously with encrypted routing.
+              </p>
+
+              {/* Features */}
+              <div className="space-y-3 mb-8">
+                <div className="flex items-center gap-3 text-sm text-gray-400">
+                  <div className="w-5 h-5 rounded-full bg-[#ec4899]/10 flex items-center justify-center">
+                    <Globe className="w-3 h-3 text-[#ec4899]" />
+                  </div>
+                  <span>Browse through peer networks</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-gray-400">
+                  <div className="w-5 h-5 rounded-full bg-[#ec4899]/10 flex items-center justify-center">
+                    <Lock className="w-3 h-3 text-[#ec4899]" />
+                  </div>
+                  <span>End-to-end encrypted tunnel</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-gray-400">
+                  <div className="w-5 h-5 rounded-full bg-[#ec4899]/10 flex items-center justify-center">
+                    <Users className="w-3 h-3 text-[#10b981]" />
+                  </div>
+                  <span>Connect to any donor node</span>
+                </div>
               </div>
 
-              <div className="border-t border-[#e5edf5] pt-5 space-y-3">
-                <div className="flex items-center gap-2 text-[13px] font-light text-[#64748d]">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#533afd]" />
-                  <span>Choose from 12 high-performance geographic hubs</span>
-                </div>
-                <div className="flex items-center gap-2 text-[13px] font-light text-[#64748d]">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#533afd]" />
-                  <span>Multi-layer AES tunnel configuration options</span>
-                </div>
-                <div className="flex items-center gap-2 text-[13px] font-light text-[#64748d]">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#533afd]" />
-                  <span>Detailed connection health logs and metrics</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-8">
+              {/* CTA */}
               <button
                 id="btn-goto-receiver"
                 onClick={() => onSelectView('receiver')}
-                className="w-full px-6 py-3.5 text-[14px] font-normal text-[#533afd] bg-white border border-[#b9b9f9] rounded-[4px] hover:bg-[#533afd]/[0.03] transition-all duration-150 active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-4 rounded-xl text-white font-semibold flex items-center justify-center gap-3 transition-all duration-200 active:scale-[0.98] cursor-pointer relative overflow-hidden group/btn"
+                style={{
+                  background: 'linear-gradient(135deg, #ec4899, #7c3aed)',
+                  boxShadow: '0 4px 20px rgba(236, 72, 153, 0.3)',
+                }}
               >
-                <span>Initialize Receiver Tunnel</span>
-                <ArrowRight className="w-4 h-4" />
+                <span className="relative z-10">Join Network</span>
+                <Globe className="w-4 h-4 relative z-10" />
+                <div className="absolute inset-0 bg-gradient-to-r from-[#ec4899] to-[#db2777] opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300" />
               </button>
             </div>
           </div>
-
         </div>
 
-        {/* Footnote information regarding data & limits */}
-        <div id="footer-explainer" className="p-4 bg-slate-50 border border-[#e5edf5] rounded-[4px] flex flex-col sm:flex-row justify-between items-center gap-3">
-          <div className="flex items-center gap-2 text-slate-500">
-            <Shield className="w-4 h-4 text-[#533afd]" />
-            <span className="text-[12px] font-light text-slate-500">All data packets and relays strictly pass metadata filtration profiles. No client credentials are stored.</span>
+        {/* ─── Stats Row ────────────────────────────────────────── */}
+        <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
+          <div className="bg-[#1a1a2e]/50 border border-white/5 rounded-xl p-4 text-center">
+            <p className="text-2xl font-bold text-[#7c3aed]" style={{ fontFamily: "'Orbitron', sans-serif" }}>
+              {user.totalEarnings.toFixed(2)}
+            </p>
+            <p className="text-[10px] uppercase tracking-wider text-gray-500 mt-1">USD Earned</p>
           </div>
-          <span className="text-[11px] font-mono text-[#273951] bg-[#e5edf5]/50 px-2 py-0.5 rounded">
-            API Core Connection: Localhost Socket Secure
-          </span>
+          <div className="bg-[#1a1a2e]/50 border border-white/5 rounded-xl p-4 text-center">
+            <p className="text-2xl font-bold text-[#06b6d4]" style={{ fontFamily: "'Orbitron', sans-serif" }}>
+              {(user.totalSharedBytes / 1e9).toFixed(1)}
+            </p>
+            <p className="text-[10px] uppercase tracking-wider text-gray-500 mt-1">GB Shared</p>
+          </div>
+          <div className="bg-[#1a1a2e]/50 border border-white/5 rounded-xl p-4 text-center">
+            <p className="text-2xl font-bold text-[#10b981]" style={{ fontFamily: "'Orbitron', sans-serif" }}>
+              {(user.totalDownloadedBytes / 1e6).toFixed(1)}
+            </p>
+            <p className="text-[10px] uppercase tracking-wider text-gray-500 mt-1">MB Downloaded</p>
+          </div>
+          <div className="bg-[#1a1a2e]/50 border border-white/5 rounded-xl p-4 text-center">
+            <p className="text-2xl font-bold text-[#ec4899]" style={{ fontFamily: "'Orbitron', sans-serif" }}>
+              {user.joinedAt}
+            </p>
+            <p className="text-[10px] uppercase tracking-wider text-gray-500 mt-1">Joined</p>
+          </div>
         </div>
       </main>
     </div>
+  );
+}
+
+// Used by features list - imported here to avoid unused imports
+function Shield(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  );
+}
+
+function Lock(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
   );
 }

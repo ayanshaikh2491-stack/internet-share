@@ -1,6 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Clock, Shield, Coins, Play, Square, Radio } from 'lucide-react';
-import type { UserProfile, PeerSession, ChartDataPoint } from '../types';
+import { useState, useEffect, useCallback } from 'react';
+import { ArrowLeft, Play, Square, Users, Database, Clock, Globe, Radio, Copy } from 'lucide-react';
+import type { ServerMessage } from '../services/tunnel';
+import { getTunnel } from '../services/tunnel';
+import type { UserProfile } from '../types';
 
 interface DonorDashboardProps {
   user: UserProfile;
@@ -8,499 +10,398 @@ interface DonorDashboardProps {
   onBack: () => void;
 }
 
-export default function DonorDashboard({ user, onUpdateUser, onBack }: DonorDashboardProps) {
-  const [isSharing, setIsSharing] = useState<boolean>(true);
-  const [sharingSpeed, setSharingSpeed] = useState<number>(12.42); // in MB/s
-  const [totalShared, setTotalShared] = useState<number>(user.totalSharedBytes); // starting from user profile
-  const [earnings, setEarnings] = useState<number>(user.totalEarnings); // starting from user profile
-  const [bandwidthLimit, setBandwidthLimit] = useState<number>(50); // Mbps limit slider
-  const [peers, setPeers] = useState<PeerSession[]>([
-    { id: 'p1', ip: '142.250.31.100', location: 'Frankfurt, DE', connectedAt: '39m ago', dataTransferred: 1420000000, speed: 4.2 * 1024 * 1024, status: 'active' },
-    { id: 'p2', ip: '34.120.254.12', location: 'Tokyo, JP', connectedAt: '12m ago', dataTransferred: 480000000, speed: 2.1 * 1024 * 1024, status: 'active' },
-    { id: 'p3', ip: '8.8.8.8', location: 'California, US', connectedAt: '1h 5m ago', dataTransferred: 4200000000, speed: 6.12 * 1024 * 1024, status: 'active' },
-  ]);
+interface PeerInfo {
+  sid: string;
+  connectedAt: number;
+}
 
-  // Rolling chart state
-  const [chartData, setChartData] = useState<ChartDataPoint[]>([
-    { time: '09:12:00', speed: 8.4 },
-    { time: '09:12:10', speed: 10.2 },
-    { time: '09:12:20', speed: 9.1 },
-    { time: '09:12:30', speed: 12.4 },
-    { time: '09:12:40', speed: 14.8 },
-    { time: '09:12:50', speed: 11.2 },
-    { time: '09:13:00', speed: 13.0 },
-    { time: '09:13:10', speed: 12.42 },
-  ]);
+export default function DonorDashboard({ onBack }: DonorDashboardProps) {
+  const tunnel = getTunnel();
+  const [isSharing, setIsSharing] = useState(false);
+  const [roomCode, setRoomCode] = useState<string | null>(null);
+  const [roomPassword, setRoomPassword] = useState('');
+  const [peers, setPeers] = useState<Map<string, PeerInfo>>(new Map());
+  const [dataMBUsed, setDataMBUsed] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [fetchRequests, setFetchRequests] = useState<Array<{ url: string; requestId: string }>>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [log, setLog] = useState<string[]>([]);
 
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const addLog = useCallback((msg: string) => {
+    setLog(prev => [...prev.slice(-49), `[${new Date().toLocaleTimeString()}] ${msg}`]);
+  }, []);
 
-  // Live simulation block
+  // Handle WebSocket messages
   useEffect(() => {
-    if (isSharing) {
-      intervalRef.current = setInterval(() => {
-        // 1. Simulate minor speed jitter
-        const speedMultiplier = (0.9 + Math.random() * 0.2); // fluctuation
-        const targetSpeed = Math.min((bandwidthLimit / 8) * speedMultiplier, 25); // cap speed depending on user throttle slider
-        setSharingSpeed(parseFloat(targetSpeed.toFixed(2)));
+    if (!tunnel) return;
 
-        // 2. Count bytes shared (approx sharingSpeed * 1MB per second)
-        const bytesSharedThisTick = Math.floor(targetSpeed * 1024 * 1024);
-        setTotalShared(prev => {
-          const next = prev + bytesSharedThisTick;
-          // Sync to parent/local storage occasionally
-          return next;
-        });
+    const handler = (msg: ServerMessage) => {
+      switch (msg.type) {
+        case 'room_created':
+          setRoomCode(msg.roomCode);
+          setIsSharing(true);
+          addLog(`Room created: ${msg.roomCode}`);
+          break;
 
-        // 3. Increment earnings ($0.15 per GB = approx $0.00015 per MB or 0.000000143 USD per byte)
-        const earningThisTick = (bytesSharedThisTick / (1024 * 1024 * 1024)) * 0.15;
-        setEarnings(prev => prev + earningThisTick);
+        case 'room_update':
+          setDataMBUsed(msg.dataMBUsed || 0);
+          setDuration(msg.duration || 0);
+          break;
 
-        // 4. Update peer transfer rates occasionally
-        setPeers(prevPeers => 
-          prevPeers.map(p => {
-            const transferIncrement = Math.floor(p.speed * (0.8 + Math.random() * 0.4));
-            return {
-              ...p,
-              dataTransferred: p.dataTransferred + transferIncrement,
-              speed: isSharing ? (1.5 + Math.random() * 4.5) * 1024 * 1024 : 0
-            };
-          })
-        );
+        case 'peer_joined': {
+          const sid: string = msg.sid || `peer_${Date.now()}`;
+          addLog(`Peer joined (${sid.slice(0, 8)}...)`);
+          setPeers(prev => {
+            const next = new Map(prev);
+            next.set(sid, { sid, connectedAt: Date.now() });
+            return next;
+          });
+          break;
+        }
 
-        // 5. Build dynamic chart update
-        setChartData(prevData => {
-          const nowStr = new Date().toLocaleTimeString('en-US', { hour12: false });
-          const updated = [...prevData, { time: nowStr, speed: targetSpeed }];
-          if (updated.length > 12) {
-            updated.shift();
+        case 'peer_left': {
+          const sid: string = msg.sid;
+          addLog(`Peer left (${sid?.slice(0, 8)}...)`);
+          if (sid) {
+            setPeers(prev => {
+              const next = new Map(prev);
+              next.delete(sid);
+              return next;
+            });
           }
-          return updated;
-        });
+          break;
+        }
 
-      }, 1000);
-    } else {
-      setSharingSpeed(0);
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    }
+        case 'room_left':
+          if (msg.closed || msg.reason) {
+            addLog(`Room closed: ${msg.reason || 'unknown'}`);
+            resetState();
+          }
+          break;
 
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+        case 'owner_disconnected':
+          addLog(`Room ended: ${msg.reason || 'disconnected'}`);
+          resetState();
+          break;
+
+        case 'fetch_url': {
+          const fetchUrl: string = msg.url || '';
+          const requestId: string = msg.requestId || '';
+          addLog(`Fetch request: ${fetchUrl}`);
+          setFetchRequests(prev => [...prev.slice(-19), { url: fetchUrl, requestId }]);
+
+          // Actually fetch the URL the receiver wants to browse
+          fetch(fetchUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+              'Accept-Language': 'en-US,en;q=0.5',
+            },
+            signal: AbortSignal.timeout(15000),
+          })
+            .then(res => res.text())
+            .then(html => {
+              tunnel?.send('fetch_response', {
+                url: fetchUrl,
+                html,
+                requestId,
+                roomCode: msg.roomCode,
+              });
+              addLog(`Sent ${html.length} bytes for ${fetchUrl}`);
+            })
+            .catch(err => {
+              const errorHtml = `<html><body style="font-family:sans-serif;padding:2rem;background:#1a1a2e;color:#eee"><h1>Error Fetching URL</h1><p>${err.message}</p><p><small>URL: ${fetchUrl}</small></p></body></html>`;
+              tunnel?.send('fetch_response', {
+                url: fetchUrl,
+                html: errorHtml,
+                requestId,
+                roomCode: msg.roomCode,
+              });
+              addLog(`Fetch failed: ${fetchUrl} - ${err.message}`);
+            });
+          break;
+        }
+
+        case 'error':
+          setError(msg.reason || 'Unknown error');
+          addLog(`Error: ${msg.reason || 'Unknown'}`);
+          break;
       }
     };
-  }, [isSharing, bandwidthLimit]);
 
-  // Sync profile data to upper state on unmount / occasionally
-  useEffect(() => {
-    onUpdateUser({
-      ...user,
-      totalSharedBytes: totalShared,
-      totalEarnings: earnings
-    });
-  }, [totalShared, earnings]);
+    tunnel.onMessage = handler;
 
-  const toggleSharing = () => {
-    setIsSharing(!isSharing);
+    return () => {
+      // Do not clean up shared tunnel
+    };
+  }, [tunnel, addLog]);
+
+  const resetState = () => {
+    setIsSharing(false);
+    setRoomCode(null);
+    setPeers(new Map());
+    setDataMBUsed(0);
+    setDuration(0);
   };
 
-  // Helper formatting values
-  const formatBytes = (bytes: number, decimals = 2) => {
-    if (bytes === 0) return '0.00 GB';
-    const k = 1000; // Use metric representation for clean standard statistics
-    const dm = decimals < 0 ? 0 : decimals;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  const startSharing = () => {
+    if (!tunnel) return;
+    setError(null);
+    addLog('Creating room...');
+    const config: any = {};
+    if (roomPassword.trim()) config.password = roomPassword.trim();
+    tunnel.createRoom(config);
   };
 
-  // SVG Area rendering equations
-  const maxVal = Math.max(...chartData.map(d => d.speed), 10);
-  const width = 600;
-  const height = 150;
-  const points = chartData.map((d, index) => {
-    const x = (index / (chartData.length - 1)) * width;
-    const y = height - (d.speed / maxVal) * (height - 20) - 10;
-    return { x, y };
-  });
+  const stopSharing = () => {
+    if (!tunnel) return;
+    addLog('Closing room...');
+    tunnel.leaveRoom();
+    resetState();
+  };
 
-  const pathD = points.length > 0 
-    ? `M ${points[0].x} ${points[0].y} ` + points.map(p => `L ${p.x} ${p.y}`).join(' ')
-    : '';
-
-  const areaD = points.length > 0 
-    ? `${pathD} L ${points[points.length - 1].x} ${height} L ${points[0].x} ${height} Z`
-    : '';
+  const formatDuration = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (h > 0) return `${h}h ${m}m ${s}s`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+  };
 
   return (
-    <div id="donor-dashboard-root" className="bg-[#ffffff] flex flex-col w-full">
-      {/* 
-        Requirement: "Dark section: #1c1e54 (auth left panel, room detail header)"
-        Applying search room metadata header with Stripe system dark coloring 
-      */}
-      <header id="donor-dark-banner" className="bg-[#1c1e54] text-white py-6 px-6 md:px-12 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-5 pointer-events-none">
-          <div className="absolute top-0 left-0 w-full h-full bg-[linear-gradient(to_right,#ffffff_1px,transparent_1px),linear-gradient(to_bottom,#ffffff_1px,transparent_1px)] bg-[size:30px_30px]" />
-        </div>
-        
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-10">
-          <div className="flex items-center gap-3">
-            <button 
-              id="btn-donor-back"
+    <div className="min-h-screen bg-[#0f0f12] text-white" style={{ fontFamily: "'Inter', sans-serif" }}>
+      {/* ─── Header ────────────────────────────────────────────── */}
+      <header className="bg-gradient-to-r from-[#1a1a2e] to-[#16213e] border-b border-[#7c3aed]/30 px-4 md:px-8 py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <button
               onClick={onBack}
-              className="p-1.5 rounded bg-white/10 text-white hover:bg-white/20 transition-all cursor-pointer"
+              className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/10"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-5 h-5 text-[#06b6d4]" />
             </button>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-[10px] tracking-wider uppercase text-[#c2bdfa]">Live Gateway Connection</span>
-                <span className={`inline-block w-2 h-2 rounded-full ${isSharing ? 'bg-[#15be53] animate-pulse' : 'bg-rose-500'}`} />
-              </div>
-              <h2 className="text-[20px] font-light tracking-tight text-white">
-                Bandwidth Donor Node Console
-              </h2>
+              <h1 className="text-lg md:text-xl" style={{ fontFamily: "'Orbitron', sans-serif", color: '#7c3aed', letterSpacing: '0.1em' }}>
+                DONOR NODE
+              </h1>
+              <p className="text-xs text-gray-400">Internet Sharing Dashboard</p>
             </div>
           </div>
-
-          <div className="flex items-center gap-3.5">
-            <div className="text-right">
-              <p className="text-[10px] font-medium tracking-wide uppercase text-[#c2bdfa]">Stripe Ledger Balance</p>
-              <p className="text-[18px] font-mono font-medium text-white">${earnings.toFixed(4)} <span className="text-xs font-sans text-emerald-400">USD</span></p>
-            </div>
+          <div className="flex items-center gap-3">
+            {roomCode && (
+              <div className="bg-[#7c3aed]/20 border border-[#7c3aed]/40 rounded-lg px-4 py-2 text-center">
+                <p className="text-[10px] uppercase tracking-widest text-gray-400">Room Code</p>
+                <p className="text-xl tracking-[0.2em] flex items-center justify-center gap-2"
+                  style={{ fontFamily: "'Orbitron', sans-serif", color: '#06b6d4' }}>
+                  {roomCode}
+                  <button onClick={() => navigator.clipboard.writeText(roomCode)}
+                    className="p-1 hover:bg-white/10 rounded transition-all" title="Copy code">
+                    <Copy className="w-3.5 h-3.5 text-gray-400" />
+                  </button>
+                </p>
+                {roomPassword && <p className="text-[10px] text-[#ec4899] mt-1">🔒 Password protected</p>}
+              </div>
+            )}
+            <div
+              className={`w-3 h-3 rounded-full ${
+                isSharing
+                  ? 'bg-[#06b6d4] animate-pulse'
+                  : 'bg-gray-600'
+              }`}
+              style={isSharing ? { boxShadow: '0 0 10px #06b6d4' } : {}}
+            />
           </div>
         </div>
       </header>
 
-      {/* Main content body in white max-width container */}
-      <main id="donor-main" className="flex-grow max-w-7xl w-full mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Left 2/3: Live Tracking and charts */}
-        <div className="lg:col-span-2 space-y-6">
-          
-          {/* Main Node controller card */}
-          <div id="card-node-status" className="bg-white border border-[#e5edf5] rounded-[5px] p-6 shadow-[0px_15px_35px_0px_rgba(23,23,23,0.04)]">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 pb-6 border-b border-[#e5edf5]">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-[11px] font-medium uppercase tracking-wider text-[#273951]">Live Switch Console</span>
-                  {isSharing ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] uppercase font-mono tracking-wider rounded bg-[#15be53]/10 text-[#15be53] border border-[#15be53]/20">
-                      Active Share
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] uppercase font-mono tracking-wider rounded bg-gray-100 text-[#64748d] border border-gray-200">
-                      Pipelining Paused
-                    </span>
-                  )}
-                </div>
-                <h3 className="text-[20px] font-light text-[#061b31]">
-                  {isSharing ? 'Sharing Excess Bandwidth Active' : 'Relay Gateway in Inactive Safe Mode'}
-                </h3>
-              </div>
+      {/* ─── Main Content ──────────────────────────────────────── */}
+      <main className="max-w-7xl mx-auto px-4 md:px-8 py-8 space-y-6">
 
-              <button
-                id="toggle-sharing-switch"
-                onClick={toggleSharing}
-                className={`px-6 py-2.5 text-[14px] font-normal rounded-[4px] flex items-center gap-2 transition-all cursor-pointer ${
-                  isSharing 
-                    ? 'bg-rose-50 border border-rose-200 text-[#ea2261] hover:bg-rose-100/50' 
-                    : 'bg-[#533afd] text-white hover:opacity-95'
-                }`}
-              >
-                {isSharing ? (
-                  <>
-                    <Square className="w-4 h-4 fill-current" />
-                    <span>Stop Sharing Session</span>
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-4 h-4 fill-current" />
-                    <span>Launch Bandwidth Sharing</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-            {/* Micro details counter layout */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-6">
-              <div>
-                <p className="text-[11px] font-medium uppercase tracking-wider text-[#273951]">Current Speed</p>
-                <p className="text-[28px] font-light text-[#061b31]">
-                  {isSharing ? `${sharingSpeed.toFixed(2)}` : '0.00'} <span className="text-xs font-normal text-[#64748d]">MB/s</span>
-                </p>
-              </div>
-
-              <div>
-                <p className="text-[11px] font-medium uppercase tracking-wider text-[#273951]">Total Shared Today</p>
-                <p className="text-[28px] font-light text-[#061b31] font-sans">
-                  {formatBytes(totalShared)}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-[11px] font-medium uppercase tracking-wider text-[#273951]">Network Fee Rate</p>
-                <p className="text-[28px] font-light text-[#061b31]">
-                  $0.15 <span className="text-xs font-normal text-[#64748d]">/ GB</span>
-                </p>
-              </div>
-
-              <div>
-                <p className="text-[11px] font-medium uppercase tracking-wider text-[#273951]">Active Peers Connected</p>
-                <p className="text-[28px] font-light text-[#061b31]">
-                  {isSharing ? peers.length : '0'} <span className="text-xs font-normal text-[#64748d]">Nodes</span>
-                </p>
-              </div>
-            </div>
+        {/* Error */}
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-400 text-sm flex items-center justify-between">
+            <span>⚠ {error}</span>
+            <button onClick={() => setError(null)} className="underline text-xs">Dismiss</button>
           </div>
+        )}
 
-          {/* SVG Custom Area Graph - Stripe style lines */}
-          <div id="card-throughput-graph" className="bg-white border border-[#e5edf5] rounded-[5px] p-6 shadow-[0px_15px_35px_0px_rgba(23,23,23,0.04)]">
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <p className="text-[11px] font-medium uppercase tracking-wider text-[#273951]">Bandwidth Telemetry Stream</p>
-                <h4 className="text-[16px] font-light text-[#061b31]">Session Output Over time (MB/s)</h4>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-[#64748d]">
-                <Clock className="w-3.5 h-3.5" />
-                <span>Simulated realtime 1s feed</span>
-              </div>
-            </div>
-
-            {/* Custom SVG Drawing Area */}
-            <div className="w-full bg-[#f8fafc] border border-[#e5edf5] rounded p-3 relative h-48 flex items-end">
-              {!isSharing && (
-                <div className="absolute inset-0 bg-[#f8fafc]/90 backdrop-blur-xs flex flex-col items-center justify-center p-4 text-center z-10">
-                  <Radio className="w-8 h-8 text-slate-300 mb-2 animate-pulse" />
-                  <p className="text-[14px] font-light text-[#061b31]">Graph Stream Suspended</p>
-                  <p className="text-[11px] font-light text-[#64748d]">Toggle standard sharing node to observe localized bandwidth metrics</p>
-                </div>
-              )}
-
-              <svg 
-                className="w-full h-full overflow-visible"
-                viewBox={`0 0 ${width} ${height}`} 
-                preserveAspectRatio="none"
-              >
-                <defs>
-                  <linearGradient id="purpleGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#533afd" stopOpacity="0.2" />
-                    <stop offset="100%" stopColor="#533afd" stopOpacity="0.0" />
-                  </linearGradient>
-                </defs>
-
-                {/* X and Y Grid dotted helpers */}
-                <line x1="0" y1="35" x2={width} y2="35" stroke="#e2e8f0" strokeDasharray="3,3" strokeWidth="1" />
-                <line x1="0" y1="70" x2={width} y2="70" stroke="#e2e8f0" strokeDasharray="3,3" strokeWidth="1" />
-                <line x1="0" y1="105" x2={width} y2="105" stroke="#e2e8f0" strokeDasharray="3,3" strokeWidth="1" />
-
-                {/* Area path */}
-                {isSharing && (
-                  <>
-                    <path d={areaD} fill="url(#purpleGradient)" />
-                    <path d={pathD} fill="none" stroke="#533afd" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </>
-                )}
-
-                {/* Draw dynamic data dot at the latest point */}
-                {isSharing && points.length > 0 && (
-                  <circle 
-                    cx={points[points.length - 1].x} 
-                    cy={points[points.length - 1].y} 
-                    r="5" 
-                    fill="#533afd" 
-                    stroke="#ffffff" 
-                    strokeWidth="1.5" 
-                    className="shadow-md"
-                  />
-                )}
-              </svg>
-            </div>
-
-            <div className="flex justify-between items-center text-[10px] text-[#64748d] font-mono mt-3 px-1">
-              <span>{chartData[0]?.time}</span>
-              <span>Capacity Cap: {bandwidthLimit} Mbps ({(bandwidthLimit/8).toFixed(1)} MB/s)</span>
-              <span>{chartData[chartData.length - 1]?.time}</span>
-            </div>
-          </div>
-
-          {/* Connected Peers table list */}
-          <div id="card-peers" className="bg-white border border-[#e5edf5] rounded-[5px] p-6 shadow-[0px_15px_35px_0px_rgba(23,23,23,0.04)]">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-[#273951] mb-2">Connected Peer Conduits</p>
-            <h4 className="text-[16px] font-light text-[#061b31] mb-4">Active geographical bandwidth consumption sessions</h4>
-
+        {/* ─── Control + Stats ─────────────────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Control Card */}
+          <div className="bg-[#1a1a2e] border border-[#7c3aed]/20 rounded-xl p-6">
+            <h2 className="text-sm mb-4 tracking-wider" style={{ fontFamily: "'Orbitron', sans-serif", color: '#7c3aed' }}>
+              CONTROL
+            </h2>
             {!isSharing ? (
-              <div className="py-8 text-center text-slate-400 font-light text-sm border border-dashed border-slate-200 rounded">
-                No active target routing peers while node is suspended.
+              <div className="space-y-3">
+                <input
+                  value={roomPassword}
+                  onChange={e => setRoomPassword(e.target.value)}
+                  placeholder="Room password (optional)"
+                  type="password"
+                  className="w-full text-center py-3 rounded-xl bg-[#0f0f12] border border-white/10 text-white focus:outline-none focus:border-[#7c3aed] text-sm"
+                />
+                <button
+                  onClick={startSharing}
+                  disabled={!tunnel}
+                  className="w-full py-4 rounded-xl text-white font-semibold flex items-center justify-center gap-3 hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    background: 'linear-gradient(135deg, #7c3aed, #06b6d4)',
+                    boxShadow: '0 4px 20px rgba(124, 58, 237, 0.3)',
+                  }}
+                >
+                  <Play className="w-5 h-5 fill-white" />
+                  <span>Start Sharing</span>
+                </button>
+                {!tunnel && (
+                  <p className="text-xs text-red-400 mt-3 text-center">Not connected to relay server</p>
+                )}
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-[#e5edf5] text-[11px] uppercase tracking-wider text-[#64748d]">
-                      <th className="pb-3 font-medium">Virtual Client IP</th>
-                      <th className="pb-3 font-medium">Geographic Location</th>
-                      <th className="pb-3 font-medium text-right">Consumption</th>
-                      <th className="pb-3 font-medium text-right">Current Speed</th>
-                      <th className="pb-3 font-medium text-right">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#e5edf5]">
-                    {peers.map(p => (
-                      <tr key={p.id} className="text-[13px] font-light hover:bg-[#f8fafc]/50">
-                        <td className="py-3 font-mono text-[#061b31]">{p.ip}</td>
-                        <td className="py-3 text-[#64748d]">{p.location}</td>
-                        <td className="py-3 text-right text-[#061b31]">{formatBytes(p.dataTransferred)}</td>
-                        <td className="py-3 text-right font-mono text-[#533afd]">{(p.speed / (1024 * 1024)).toFixed(2)} MB/s</td>
-                        <td className="py-3 text-right">
-                          <span className="inline-flex items-center gap-1 text-[11px] text-[#15be53] font-medium bg-[#15be53]/10 px-2 py-0.5 rounded border border-[#15be53]/15">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#15be53] animate-pulse" />
-                            Active
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <button
+                onClick={stopSharing}
+                className="w-full py-4 rounded-xl text-white font-semibold flex items-center justify-center gap-3 hover:opacity-90 transition-all"
+                style={{
+                  background: 'linear-gradient(135deg, #ef4444, #e11d48)',
+                  boxShadow: '0 4px 20px rgba(239, 68, 68, 0.3)',
+                }}
+              >
+                <Square className="w-5 h-5 fill-white" />
+                <span>Stop Sharing</span>
+              </button>
+            )}
+            {!tunnel && (
+              <p className="text-xs text-red-400 mt-3 text-center">Not connected to relay server</p>
+            )}
+          </div>
+
+          {/* Stats Cards */}
+          <div className="lg:col-span-2 grid grid-cols-3 gap-4">
+            <div className="bg-[#1a1a2e] border border-[#7c3aed]/20 rounded-xl p-6">
+              <div className="flex items-center gap-2 text-[#06b6d4] mb-3">
+                <Users className="w-4 h-4" />
+                <span className="text-[10px] uppercase tracking-wider" style={{ fontFamily: "'Orbitron', sans-serif" }}>
+                  Peers
+                </span>
+              </div>
+              <p className="text-3xl" style={{ fontFamily: "'Orbitron', sans-serif" }}>
+                {peers.size}
+              </p>
+            </div>
+            <div className="bg-[#1a1a2e] border border-[#7c3aed]/20 rounded-xl p-6">
+              <div className="flex items-center gap-2 text-[#7c3aed] mb-3">
+                <Database className="w-4 h-4" />
+                <span className="text-[10px] uppercase tracking-wider" style={{ fontFamily: "'Orbitron', sans-serif" }}>
+                  Data Used
+                </span>
+              </div>
+              <p className="text-3xl" style={{ fontFamily: "'Orbitron', sans-serif" }}>
+                {dataMBUsed.toFixed(1)} <span className="text-sm text-gray-400">MB</span>
+              </p>
+            </div>
+            <div className="bg-[#1a1a2e] border border-[#7c3aed]/20 rounded-xl p-6">
+              <div className="flex items-center gap-2 text-emerald-400 mb-3">
+                <Clock className="w-4 h-4" />
+                <span className="text-[10px] uppercase tracking-wider" style={{ fontFamily: "'Orbitron', sans-serif" }}>
+                  Duration
+                </span>
+              </div>
+              <p className="text-3xl" style={{ fontFamily: "'Orbitron', sans-serif" }}>
+                {formatDuration(duration)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ─── Peers + Fetch Log ───────────────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Peers */}
+          <div className="bg-[#1a1a2e] border border-[#7c3aed]/20 rounded-xl p-6">
+            <h2 className="text-sm mb-4 tracking-wider" style={{ fontFamily: "'Orbitron', sans-serif", color: '#06b6d4' }}>
+              <Users className="w-4 h-4 inline mr-2" />
+              CONNECTED PEERS
+            </h2>
+            {peers.size === 0 ? (
+              <div className="text-center py-10 text-gray-500">
+                <Radio className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                <p className="text-sm">Waiting for receivers to join...</p>
+                <p className="text-xs text-gray-600 mt-1">Share your room code above</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-72 overflow-y-auto">
+                {[...peers.entries()].map(([sid, peer]) => (
+                  <div
+                    key={sid}
+                    className="bg-[#0f0f12] rounded-lg p-3 flex items-center justify-between border border-white/5"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-2 h-2 rounded-full bg-[#06b6d4] animate-pulse"
+                        style={{ boxShadow: '0 0 6px #06b6d4' }}
+                      />
+                      <span className="text-sm font-mono text-gray-300">
+                        {sid.slice(0, 12)}...
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {Math.floor((Date.now() - peer.connectedAt) / 1000)}s ago
+                    </span>
+                  </div>
+                ))}
               </div>
             )}
           </div>
 
+          {/* Fetch Requests */}
+          <div className="bg-[#1a1a2e] border border-[#7c3aed]/20 rounded-xl p-6">
+            <h2 className="text-sm mb-4 tracking-wider" style={{ fontFamily: "'Orbitron', sans-serif", color: '#06b6d4' }}>
+              <Globe className="w-4 h-4 inline mr-2" />
+              URL FETCHES
+            </h2>
+            {fetchRequests.length === 0 ? (
+              <div className="text-center py-10 text-gray-500">
+                <Globe className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                <p className="text-sm">No URL requests yet</p>
+                <p className="text-xs text-gray-600 mt-1">Receivers will request URLs here</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-72 overflow-y-auto">
+                {fetchRequests.map((req, i) => (
+                  <div
+                    key={`${req.requestId}-${i}`}
+                    className="bg-[#0f0f12] rounded-lg p-3 border border-white/5"
+                  >
+                    <p className="text-sm text-[#06b6d4] truncate" title={req.url}>
+                      {req.url}
+                    </p>
+                    <p className="text-xs text-gray-600 font-mono mt-1">
+                      {req.requestId.slice(0, 24)}...
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Right 1/3: Settings controls & Payout parameters */}
-        <div className="space-y-6">
-          
-          {/* Quick Balance accounting settlement */}
-          <div id="card-payout" className="bg-white border border-[#e5edf5] rounded-[5px] p-6 shadow-[0px_15px_35px_0px_rgba(23,23,23,0.04)] space-y-6">
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-wider text-[#273951]">Account Liquidation</p>
-              <h3 className="text-[20px] font-light text-[#061b31]">Settlement Details</h3>
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex justify-between items-center text-[13px] font-light">
-                <span className="text-[#64748d]">Accrued Balance:</span>
-                <span className="font-semibold text-[#061b31]">${earnings.toFixed(4)} USD</span>
-              </div>
-              <div className="flex justify-between items-center text-[13px] font-light">
-                <span className="text-[#64748d]">Minimum Payout Threshold:</span>
-                <span className="text-[#061b31] font-mono">$10.00 USD</span>
-              </div>
-              <div className="flex justify-between items-center text-[13px] font-light">
-                <span className="text-[#64748d]">Active Payout Wallet:</span>
-                <span className="text-[#533afd] font-mono truncate max-w-[150px]" title={user.email}>
-                  {user.email.split('@')[0]}...@stripe
-                </span>
-              </div>
-
-              {/* Progress Bar to Settlement */}
-              <div className="space-y-1.5 pt-2">
-                <div className="flex justify-between text-[11px] font-medium uppercase text-[#64748d]">
-                  <span>Liquidation Readiness</span>
-                  <span>{Math.min((earnings / 10) * 100, 100).toFixed(1)}%</span>
-                </div>
-                <div className="w-full bg-[#e5edf5] h-1.5 rounded-full overflow-hidden">
-                  <div 
-                    className="bg-[#533afd] h-full rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min((earnings / 10) * 100, 100)}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Payout Action button */}
-            <button
-              id="btn-trigger-payout"
-              disabled={earnings < 10}
-              className="w-full px-6 py-3 text-[13px] font-normal text-white bg-[#533afd] rounded-[4px] disabled:opacity-30 disabled:cursor-not-allowed hover:opacity-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
-            >
-              <Coins className="w-4 h-4" />
-              <span>Request Ledger Liquidation</span>
-            </button>
-            <p className="text-[11px] text-[#64748d] font-light text-center leading-normal">
-              Proceeds will be cleared directly through your associated Stripe billing index.
-            </p>
+        {/* ─── Activity Log ────────────────────────────────────── */}
+        <div className="bg-[#1a1a2e] border border-[#7c3aed]/20 rounded-xl p-6">
+          <h2 className="text-sm mb-4 tracking-wider text-gray-400" style={{ fontFamily: "'Orbitron', sans-serif" }}>
+            ACTIVITY LOG
+          </h2>
+          <div className="bg-[#0f0f12] rounded-lg p-4 max-h-48 overflow-y-auto font-mono text-xs space-y-1 border border-white/5">
+            {log.length === 0 ? (
+              <p className="text-gray-600 italic">No activity yet. Start sharing to begin.</p>
+            ) : (
+              log.map((entry, i) => (
+                <p key={i} className="text-gray-400 leading-relaxed">
+                  {entry}
+                </p>
+              ))
+            )}
           </div>
-
-          {/* Node Tuning Settings Panel */}
-          <div id="card-tuning" className="bg-white border border-[#e5edf5] rounded-[5px] p-6 shadow-[0px_15px_35px_0px_rgba(23,23,23,0.04)] space-y-6">
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-wider text-[#273951]">Cap Parameters</p>
-              <h3 className="text-[20px] font-light text-[#061b31]">Bandwidth Valve</h3>
-            </div>
-
-            {/* Throttle slider */}
-            <div className="space-y-3">
-              <div className="flex justify-between text-[13px] font-light">
-                <span className="text-[#64748d]">Upstream Limit cap:</span>
-                <span className="font-semibold text-[#533afd]">{bandwidthLimit} Mbps</span>
-              </div>
-              <input
-                id="input-limit-slider"
-                type="range"
-                min="5"
-                max="100"
-                step="5"
-                value={bandwidthLimit}
-                onChange={(e) => setBandwidthLimit(parseInt(e.target.value))}
-                className="w-full h-1.5 bg-[#e5edf5] rounded-lg appearance-none cursor-pointer accent-[#533afd]"
-              />
-              <div className="flex justify-between text-[10px] text-[#64748d] font-mono">
-                <span>5 Mbps</span>
-                <span>50 Mbps</span>
-                <span>100 Mbps (Max)</span>
-              </div>
-            </div>
-
-            {/* Sub settings parameters */}
-            <div className="space-y-4 pt-4 border-t border-[#e5edf5]">
-              <div className="flex items-start gap-2.5">
-                <input 
-                  id="chk-encrypted-only" 
-                  type="checkbox" 
-                  defaultChecked 
-                  className="w-4.5 h-4.5 border-[#e5edf5] rounded text-[#533afd] focus:ring-0 mt-0.5" 
-                />
-                <div>
-                  <label htmlFor="chk-encrypted-only" className="text-[13px] font-medium text-[#273951] block cursor-pointer">
-                    Force Secured TLS Only
-                  </label>
-                  <span className="text-[11px] font-light text-[#64748d] block leading-normal">
-                    Rejects non-secured proxy pipelines to guarantee device firewall safety.
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2.5">
-                <input 
-                  id="chk-allow-residential" 
-                  type="checkbox" 
-                  defaultChecked 
-                  className="w-4.5 h-4.5 border-[#e5edf5] rounded text-[#533afd] focus:ring-0 mt-0.5" 
-                />
-                <div>
-                  <label htmlFor="chk-allow-residential" className="text-[13px] font-medium text-[#273951] block cursor-pointer">
-                    Residential Masking Mode
-                  </label>
-                  <span className="text-[11px] font-light text-[#64748d] block leading-normal">
-                    Exposes node strictly as a general home socket for high value corp scrapers.
-                  </span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-[#f8fafc] border border-[#e5edf5] p-3 rounded flex gap-2">
-              <Shield className="w-4 h-4 text-[#533afd] shrink-0 mt-0.5" />
-              <p className="text-[11px] font-light text-[#273951] leading-relaxed">
-                Firewall Guard active. Sharing redundant bandwidth has zero access rights to local disks or private configurations.
-              </p>
-            </div>
-          </div>
-
         </div>
-
       </main>
     </div>
   );

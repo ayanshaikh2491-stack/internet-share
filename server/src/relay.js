@@ -13,6 +13,8 @@ export class Relay {
     this.userManager = userManager;
     this.bytesRelayed = 0;
     this.messagesRelayed = 0;
+    this.fetchRequests = new Map(); // requestId → { requesterSid, roomCode }
+    this.fetchCounter = 0;
   }
 
   getOwnerRooms(ownerWs) {
@@ -153,6 +155,100 @@ export class Relay {
       case 'leave_all':
         this.roomManager.leaveRoom(ws);
         break;
+
+      case 'fetch_url': {
+        // Receiver wants to browse a URL via the donor's connection
+        const { url, roomCode } = parsed;
+        if (!url || !roomCode) {
+          ws.send(message(ServerMessage.ERROR, { reason: 'Missing url or roomCode' }));
+          break;
+        }
+
+        // Find the room and verify sender is a peer
+        let targetRoom = null;
+        let sid = ws._sid;
+        for (const room of this.roomManager.rooms.values()) {
+          if (room.code === roomCode.toUpperCase() && (room.owner === ws || room.peers.has(sid))) {
+            targetRoom = room;
+            break;
+          }
+        }
+
+        if (!targetRoom) {
+          ws.send(message(ServerMessage.ERROR, { reason: 'Room not found or not a member' }));
+          break;
+        }
+
+        // Only peers (receivers) can request fetches, not the owner
+        if (targetRoom.owner === ws) {
+          ws.send(message(ServerMessage.ERROR, { reason: 'Only receivers can request URL fetches' }));
+          break;
+        }
+
+        if (!targetRoom.owner || targetRoom.owner.readyState !== 1) {
+          ws.send(message(ServerMessage.ERROR, { reason: 'Donor is not connected' }));
+          break;
+        }
+
+        // Generate a request ID and store it
+        const requestId = `fetch_${++this.fetchCounter}_${Date.now()}`;
+        this.fetchRequests.set(requestId, { requesterSid: sid, roomCode: targetRoom.code });
+
+        // Relay the fetch request to the donor
+        this.bytesRelayed += Buffer.byteLength(url);
+        this.messagesRelayed++;
+        targetRoom.owner.send(message(ServerMessage.FETCH_URL, {
+          url,
+          requestId,
+          roomCode: targetRoom.code,
+        }));
+        break;
+      }
+
+      case 'fetch_response': {
+        // Donor is sending back the fetched HTML
+        const { url, html, requestId } = parsed;
+        if (!requestId) {
+          ws.send(message(ServerMessage.ERROR, { reason: 'Missing requestId' }));
+          break;
+        }
+
+        const fetchReq = this.fetchRequests.get(requestId);
+        if (!fetchReq) {
+          ws.send(message(ServerMessage.ERROR, { reason: 'Unknown fetch request' }));
+          break;
+        }
+
+        // Verify sender is the owner (donor) of the room
+        let isOwner = false;
+        for (const room of this.roomManager.rooms.values()) {
+          if (room.code === fetchReq.roomCode && room.owner === ws) {
+            isOwner = true;
+            break;
+          }
+        }
+
+        if (!isOwner) {
+          ws.send(message(ServerMessage.ERROR, { reason: 'Only the donor can respond to fetches' }));
+          break;
+        }
+
+        // Find the requester and send them the response
+        const requesterInfo = this.roomManager.socketInfo.get(fetchReq.requesterSid);
+        if (requesterInfo && requesterInfo.ws.readyState === 1) {
+          this.bytesRelayed += Buffer.byteLength(html || '');
+          this.messagesRelayed++;
+          requesterInfo.ws.send(message(ServerMessage.FETCH_RESPONSE, {
+            url,
+            html,
+            requestId,
+          }));
+        }
+
+        // Clean up the stored request
+        this.fetchRequests.delete(requestId);
+        break;
+      }
 
       case 'data':
         this.relayData(ws, rawMessage);

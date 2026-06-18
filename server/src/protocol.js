@@ -25,6 +25,8 @@ export const ServerMessage = {
   DATA: 'data',
   ERROR: 'error',
   AUTH_OK: 'auth_ok',
+  FETCH_URL: 'fetch_url',
+  FETCH_RESPONSE: 'fetch_response',
 };
 
 export const DEFAULT_ROOM_SETTINGS = {

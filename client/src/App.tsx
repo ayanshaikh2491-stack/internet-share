@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { TunnelClient } from './services/tunnel'
+import { setGlobalTunnel } from './services/tunnel'
 import { auth } from './services/auth'
 import type { UserProfile } from './types'
 import AuthScreen from './components/AuthScreen'
@@ -45,8 +46,12 @@ function App() {
       token,
     })
     tunnelRef.current = tunnel
+    setGlobalTunnel(tunnel)
     tunnel.connect()
-    return () => tunnel.disconnect()
+    return () => {
+      tunnel.disconnect()
+      setGlobalTunnel(null)
+    }
   }, [screen, user])
 
   const handleAuthSuccess = (profile: UserProfile) => {
@@ -72,8 +77,9 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#f6f9fc' }}>
-        <div className="w-6 h-6 rounded-[2px] border-2 border-[#e5edf5] border-t-[#533afd] animate-spin" />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0f0f12] gap-4">
+        <div className="w-5 h-5 rounded-sm border-2 border-white/10 border-t-[#7c3aed] animate-spin" />
+        <p className="text-xs text-gray-500 font-mono">CONNECTING...</p>
       </div>
     )
   }
@@ -91,7 +97,7 @@ function App() {
   }
 
   if (screen === 'receiver') {
-    return <ReceiverJoin user={user!} onUpdateUser={updateUser} onBack={handleBack} />
+    return <ReceiverJoin onBack={handleBack} />
   }
 
   return null
