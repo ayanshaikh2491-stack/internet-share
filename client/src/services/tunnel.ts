@@ -104,7 +104,15 @@ export class TunnelClient {
     this.setState('disconnected');
   }
 
-  getState() { return this.state; }
+  // Public method to check connection state
+  isConnected(): boolean {
+    return this.state === 'connected' || this.state === 'paired';
+  }
+
+  // Expose state for components
+  getState(): ConnectionState {
+    return this.state;
+  }
 
   send(type: string, data: Record<string, any> = {}) {
     if (this.ws?.readyState === WebSocket.OPEN) {

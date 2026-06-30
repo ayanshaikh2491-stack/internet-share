@@ -1,12 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Play, Square, Users, Database, Clock, Globe, Radio, Copy } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { ArrowLeft, Play, Square, Users, Database, Clock, Copy, Shield, Wifi, AlertCircle } from 'lucide-react';
 import type { ServerMessage } from '../services/tunnel';
 import { getTunnel } from '../services/tunnel';
 import type { UserProfile } from '../types';
 
 interface DonorDashboardProps {
   user: UserProfile;
-  onUpdateUser: (updated: UserProfile) => void;
   onBack: () => void;
 }
 
@@ -15,7 +14,44 @@ interface PeerInfo {
   connectedAt: number;
 }
 
-export default function DonorDashboard({ onBack }: DonorDashboardProps) {
+// Animated counter hook
+function useAnimatedCounter(value: number, duration = 300) {
+  const [display, setDisplay] = useState(value);
+  const prevRef = useRef(value);
+
+  useEffect(() => {
+    const prev = prevRef.current;
+    if (prev === value) return;
+    prevRef.current = value;
+
+    const start = performance.now();
+    const animate = (now: number) => {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(prev + (value - prev) * eased);
+      if (progress < 1) requestAnimationFrame(animate);
+    };
+    requestAnimationFrame(animate);
+  }, [value, duration]);
+
+  return display;
+}
+
+// Connection status badge
+function ConnectionBadge({ connected }: { connected: boolean }) {
+  return (
+    <div className="fixed top-4 right-4 z-50 flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium" style={{
+      background: connected ? 'rgba(16,185,129,0.1)' : 'rgba(113,113,122,0.1)',
+      borderColor: connected ? 'rgba(16,185,129,0.3)' : 'rgba(113,113,122,0.2)',
+      color: connected ? 'var(--accent-green)' : 'var(--muted)',
+    }}>
+      <div className={`w-2 h-2 rounded-full ${connected ? 'bg-[var(--accent-green)] animate-pulse' : 'bg-[var(--muted)]'}`} style={connected ? { boxShadow: '0 0 6px var(--accent-green)' } : {}} />
+      {connected ? 'ONLINE' : 'OFFLINE'}
+    </div>
+  );
+}
+
+export default function DonorDashboard({ user, onBack }: DonorDashboardProps) {
   const tunnel = getTunnel();
   const [isSharing, setIsSharing] = useState(false);
   const [roomCode, setRoomCode] = useState<string | null>(null);
@@ -23,9 +59,34 @@ export default function DonorDashboard({ onBack }: DonorDashboardProps) {
   const [peers, setPeers] = useState<Map<string, PeerInfo>>(new Map());
   const [dataMBUsed, setDataMBUsed] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [fetchRequests, setFetchRequests] = useState<Array<{ url: string; requestId: string }>>([]);
   const [error, setError] = useState<string | null>(null);
   const [log, setLog] = useState<string[]>([]);
+  const [showChars, setShowChars] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+
+  const animatedDataMB = useAnimatedCounter(dataMBUsed);
+  const animatedDuration = useAnimatedCounter(duration);
+  const animatedPeers = useAnimatedCounter(peers.size);
+
+  // Check connection status
+  useEffect(() => {
+    if (!tunnel) return;
+    const checkConnection = () => {
+      setIsConnected(tunnel.isConnected());
+    };
+    checkConnection();
+    const interval = setInterval(checkConnection, 1000);
+    return () => clearInterval(interval);
+  }, [tunnel]);
+
+  // Staggered room code animation
+  useEffect(() => {
+    if (roomCode) {
+      setShowChars(false);
+      const timer = setTimeout(() => setShowChars(true), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [roomCode]);
 
   const addLog = useCallback((msg: string) => {
     setLog(prev => [...prev.slice(-49), `[${new Date().toLocaleTimeString()}] ${msg}`]);
@@ -88,9 +149,7 @@ export default function DonorDashboard({ onBack }: DonorDashboardProps) {
           const fetchUrl: string = msg.url || '';
           const requestId: string = msg.requestId || '';
           addLog(`Fetch request: ${fetchUrl}`);
-          setFetchRequests(prev => [...prev.slice(-19), { url: fetchUrl, requestId }]);
 
-          // Actually fetch the URL the receiver wants to browse
           fetch(fetchUrl, {
             headers: {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -107,17 +166,12 @@ export default function DonorDashboard({ onBack }: DonorDashboardProps) {
                 requestId,
                 roomCode: msg.roomCode,
               });
-              addLog(`Sent ${html.length} bytes for ${fetchUrl}`);
+              addLog(`Sent ${(html.length / 1024).toFixed(1)}KB for ${fetchUrl}`);
             })
             .catch(err => {
-              const errorHtml = `<html><body style="font-family:sans-serif;padding:2rem;background:#1a1a2e;color:#eee"><h1>Error Fetching URL</h1><p>${err.message}</p><p><small>URL: ${fetchUrl}</small></p></body></html>`;
-              tunnel?.send('fetch_response', {
-                url: fetchUrl,
-                html: errorHtml,
-                requestId,
-                roomCode: msg.roomCode,
-              });
-              addLog(`Fetch failed: ${fetchUrl} - ${err.message}`);
+              const errorHtml = `<html><body style="font-family:system-ui;padding:3rem;background:#0f0f12;color:#fafafa;text-align:center"><h1 style="color:#ef4444">⚠ Error</h1><p>${err.message}</p><p style="opacity:0.5;font-size:0.85rem">${fetchUrl}</p></body></html>`;
+              tunnel?.send('fetch_response', { url: fetchUrl, html: errorHtml, requestId, roomCode: msg.roomCode });
+              addLog(`Fetch failed: ${err.message}`);
             });
           break;
         }
@@ -130,15 +184,13 @@ export default function DonorDashboard({ onBack }: DonorDashboardProps) {
     };
 
     tunnel.onMessage = handler;
-
-    return () => {
-      // Do not clean up shared tunnel
-    };
+    return () => {};
   }, [tunnel, addLog]);
 
   const resetState = () => {
     setIsSharing(false);
     setRoomCode(null);
+    setShowChars(false);
     setPeers(new Map());
     setDataMBUsed(0);
     setDuration(0);
@@ -148,7 +200,7 @@ export default function DonorDashboard({ onBack }: DonorDashboardProps) {
     if (!tunnel) return;
     setError(null);
     addLog('Creating room...');
-    const config: any = {};
+    const config: { password?: string } = {};
     if (roomPassword.trim()) config.password = roomPassword.trim();
     tunnel.createRoom(config);
   };
@@ -169,235 +221,253 @@ export default function DonorDashboard({ onBack }: DonorDashboardProps) {
     return `${s}s`;
   };
 
+  const copyRoomCode = () => {
+    if (roomCode) {
+      navigator.clipboard.writeText(roomCode);
+      addLog('Room code copied');
+    }
+  };
+
+  // Progress bar calculations
+  const maxDataMB = 100;
+  const dataProgress = Math.min((dataMBUsed / maxDataMB) * 100, 100);
+  const dataWarn = dataProgress >= 80;
+
+  const maxDurationSec = 1800;
+  const durationProgress = Math.min((duration / maxDurationSec) * 100, 100);
+  const durationWarn = durationProgress >= 80;
+
   return (
-    <div className="min-h-screen bg-[#0f0f12] text-white" style={{ fontFamily: "'Inter', sans-serif" }}>
-      {/* ─── Header ────────────────────────────────────────────── */}
-      <header className="bg-gradient-to-r from-[#1a1a2e] to-[#16213e] border-b border-[#7c3aed]/30 px-4 md:px-8 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-4">
+    <div className="min-h-screen bg-[var(--canvas)] text-[var(--ink)] flex flex-col relative overflow-hidden">
+      {/* Ambient glow */}
+      <div className="fixed inset-0 pointer-events-none" style={{
+        background: 'radial-gradient(ellipse at 20% 0%, rgba(124,58,237,0.08) 0%, transparent 60%), radial-gradient(ellipse at 80% 100%, rgba(6,182,212,0.05) 0%, transparent 60%)',
+      }} />
+
+      <ConnectionBadge connected={isConnected} />
+
+      {/* Header */}
+      <header className="relative z-10 px-4 sm:px-6 md:px-10 py-4 sm:py-5 border-b border-[var(--hairline)] bg-[var(--canvas)]/80 backdrop-blur-sm">
+        <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 sm:gap-4">
             <button
               onClick={onBack}
-              className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/10"
+              aria-label="Back to home"
+              className="p-2 rounded-[var(--radius-md)] bg-[var(--canvas-elevated)] hover:bg-[var(--surface-hover)] transition-all border border-[var(--hairline)] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/60"
             >
-              <ArrowLeft className="w-5 h-5 text-[#06b6d4]" />
+              <ArrowLeft className="w-5 h-5 text-[var(--body)]" />
             </button>
             <div>
-              <h1 className="text-lg md:text-xl" style={{ fontFamily: "'Orbitron', sans-serif", color: '#7c3aed', letterSpacing: '0.1em' }}>
-                DONOR NODE
-              </h1>
-              <p className="text-xs text-gray-400">Internet Sharing Dashboard</p>
+              <h1 className="text-base font-medium text-[var(--ink)]" style={{ fontFamily: 'Orbitron, sans-serif', letterSpacing: '0.04em' }}>Share Internet</h1>
+              <p className="text-[11px] text-[var(--muted)] mt-0.5">{user.email}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            {roomCode && (
-              <div className="bg-[#7c3aed]/20 border border-[#7c3aed]/40 rounded-lg px-4 py-2 text-center">
-                <p className="text-[10px] uppercase tracking-widest text-gray-400">Room Code</p>
-                <p className="text-xl tracking-[0.2em] flex items-center justify-center gap-2"
-                  style={{ fontFamily: "'Orbitron', sans-serif", color: '#06b6d4' }}>
-                  {roomCode}
-                  <button onClick={() => navigator.clipboard.writeText(roomCode)}
-                    className="p-1 hover:bg-white/10 rounded transition-all" title="Copy code">
-                    <Copy className="w-3.5 h-3.5 text-gray-400" />
-                  </button>
-                </p>
-                {roomPassword && <p className="text-[10px] text-[#ec4899] mt-1">🔒 Password protected</p>}
-              </div>
-            )}
-            <div
-              className={`w-3 h-3 rounded-full ${
-                isSharing
-                  ? 'bg-[#06b6d4] animate-pulse'
-                  : 'bg-gray-600'
-              }`}
-              style={isSharing ? { boxShadow: '0 0 10px #06b6d4' } : {}}
-            />
-          </div>
+          {roomCode && (
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-[var(--accent-green)]" />
+              <span className="text-sm tracking-[0.15em] text-[var(--primary)] font-mono">{roomCode}</span>
+              <button onClick={copyRoomCode} className="p-1 rounded hover:bg-[var(--surface-hover)] transition" aria-label="Copy code">
+                <Copy className="w-3.5 h-3.5 text-[var(--muted)]" />
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
-      {/* ─── Main Content ──────────────────────────────────────── */}
-      <main className="max-w-7xl mx-auto px-4 md:px-8 py-8 space-y-6">
-
-        {/* Error */}
+      {/* Main */}
+      <main className="relative z-10 flex-1 max-w-3xl mx-auto w-full px-4 sm:px-6 md:px-10 py-6 sm:py-8 space-y-5 sm:space-y-6">
+        {/* Error Alert */}
         {error && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-400 text-sm flex items-center justify-between">
-            <span>⚠ {error}</span>
-            <button onClick={() => setError(null)} className="underline text-xs">Dismiss</button>
+          <div role="alert" className="bg-[var(--accent-red)]/10 border border-[var(--accent-red)]/30 rounded-[var(--radius-xl)] p-4 flex items-center gap-3 text-[var(--accent-red)] text-sm">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <span className="flex-1">{error}</span>
+            <button onClick={() => setError(null)} className="text-xs underline shrink-0 hover:opacity-80">Dismiss</button>
           </div>
         )}
 
-        {/* ─── Control + Stats ─────────────────────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Control Card */}
-          <div className="bg-[#1a1a2e] border border-[#7c3aed]/20 rounded-xl p-6">
-            <h2 className="text-sm mb-4 tracking-wider" style={{ fontFamily: "'Orbitron', sans-serif", color: '#7c3aed' }}>
-              CONTROL
-            </h2>
-            {!isSharing ? (
-              <div className="space-y-3">
+        {/* Room Code Display */}
+        {isSharing && roomCode && (
+          <div className="relative bg-[var(--canvas-elevated)] border border-[var(--primary)]/25 rounded-[var(--radius-xl)] p-6 sm:p-8 text-center overflow-hidden">
+            {/* Glow effect */}
+            <div className="absolute inset-0 pointer-events-none" style={{
+              background: 'radial-gradient(circle at 50% 0%, rgba(124,58,237,0.1) 0%, transparent 70%)',
+            }} />
+            <p className="relative text-[11px] text-[var(--muted)] uppercase tracking-widest mb-4" style={{ letterSpacing: '0.15em' }}>Share this code</p>
+            <div className="relative flex justify-center gap-2 sm:gap-3 mb-4">
+              {roomCode.split('').map((char, i) => (
+                <span
+                  key={i}
+                  className="inline-block text-5xl sm:text-6xl md:text-7xl font-mono font-bold text-[var(--primary)]"
+                  style={{
+                    textShadow: showChars ? '0 0 30px rgba(124,58,237,0.6), 0 0 60px rgba(124,58,237,0.3)' : 'none',
+                    opacity: showChars ? 1 : 0,
+                    transform: showChars ? 'translateY(0)' : 'translateY(16px)',
+                    transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                    transitionDelay: `${i * 80}ms`,
+                  }}
+                >
+                  {char}
+                </span>
+              ))}
+            </div>
+            {roomPassword && (
+              <div className="relative inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium" style={{
+                background: 'rgba(236,72,153,0.1)',
+                color: 'var(--accent-pink)',
+                border: '1px solid rgba(236,72,153,0.2)',
+              }}>
+                <Shield className="w-3 h-3" /> Password protected
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Control Card */}
+        <div className="bg-[var(--canvas-elevated)] border border-[var(--hairline)] rounded-[var(--radius-xl)] p-5 sm:p-6">
+          {!isSharing ? (
+            <div className="space-y-4 max-w-sm mx-auto">
+              {/* Password input */}
+              <div className="relative">
                 <input
                   value={roomPassword}
                   onChange={e => setRoomPassword(e.target.value)}
-                  placeholder="Room password (optional)"
+                  placeholder="Add room password (optional)"
                   type="password"
-                  className="w-full text-center py-3 rounded-xl bg-[#0f0f12] border border-white/10 text-white focus:outline-none focus:border-[#7c3aed] text-sm"
+                  className="w-full text-center py-3 px-4 rounded-[var(--radius-xl)] bg-[var(--canvas)] border border-[var(--hairline)] text-[var(--ink)] focus:outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20 text-sm placeholder:text-[var(--muted-soft)] transition"
                 />
-                <button
-                  onClick={startSharing}
-                  disabled={!tunnel}
-                  className="w-full py-4 rounded-xl text-white font-semibold flex items-center justify-center gap-3 hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{
-                    background: 'linear-gradient(135deg, #7c3aed, #06b6d4)',
-                    boxShadow: '0 4px 20px rgba(124, 58, 237, 0.3)',
-                  }}
-                >
-                  <Play className="w-5 h-5 fill-white" />
-                  <span>Start Sharing</span>
-                </button>
-                {!tunnel && (
-                  <p className="text-xs text-red-400 mt-3 text-center">Not connected to relay server</p>
-                )}
+                <Shield className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-soft)]" />
               </div>
-            ) : (
-              <button
-                onClick={stopSharing}
-                className="w-full py-4 rounded-xl text-white font-semibold flex items-center justify-center gap-3 hover:opacity-90 transition-all"
-                style={{
-                  background: 'linear-gradient(135deg, #ef4444, #e11d48)',
-                  boxShadow: '0 4px 20px rgba(239, 68, 68, 0.3)',
-                }}
-              >
-                <Square className="w-5 h-5 fill-white" />
-                <span>Stop Sharing</span>
-              </button>
-            )}
-            {!tunnel && (
-              <p className="text-xs text-red-400 mt-3 text-center">Not connected to relay server</p>
-            )}
-          </div>
 
-          {/* Stats Cards */}
-          <div className="lg:col-span-2 grid grid-cols-3 gap-4">
-            <div className="bg-[#1a1a2e] border border-[#7c3aed]/20 rounded-xl p-6">
-              <div className="flex items-center gap-2 text-[#06b6d4] mb-3">
-                <Users className="w-4 h-4" />
-                <span className="text-[10px] uppercase tracking-wider" style={{ fontFamily: "'Orbitron', sans-serif" }}>
-                  Peers
-                </span>
-              </div>
-              <p className="text-3xl" style={{ fontFamily: "'Orbitron', sans-serif" }}>
-                {peers.size}
-              </p>
+              {/* Start button */}
+              <button
+                onClick={startSharing}
+                disabled={!tunnel || !isConnected}
+                className="w-full py-4 rounded-[var(--radius-xl)] text-white font-medium flex items-center justify-center gap-3 hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/60"
+                style={{ boxShadow: 'var(--shadow-glow-primary)' }}
+              >
+                <Play className="w-5 h-5 fill-white" />
+                <span>Start Sharing</span>
+              </button>
+
+              {!isConnected && (
+                <div className="flex items-center justify-center gap-2 text-xs text-[var(--accent-amber)]">
+                  <Wifi className="w-3.5 h-3.5" />
+                  <span>Connecting to server...</span>
+                </div>
+              )}
             </div>
-            <div className="bg-[#1a1a2e] border border-[#7c3aed]/20 rounded-xl p-6">
-              <div className="flex items-center gap-2 text-[#7c3aed] mb-3">
-                <Database className="w-4 h-4" />
-                <span className="text-[10px] uppercase tracking-wider" style={{ fontFamily: "'Orbitron', sans-serif" }}>
-                  Data Used
-                </span>
-              </div>
-              <p className="text-3xl" style={{ fontFamily: "'Orbitron', sans-serif" }}>
-                {dataMBUsed.toFixed(1)} <span className="text-sm text-gray-400">MB</span>
-              </p>
-            </div>
-            <div className="bg-[#1a1a2e] border border-[#7c3aed]/20 rounded-xl p-6">
-              <div className="flex items-center gap-2 text-emerald-400 mb-3">
-                <Clock className="w-4 h-4" />
-                <span className="text-[10px] uppercase tracking-wider" style={{ fontFamily: "'Orbitron', sans-serif" }}>
-                  Duration
-                </span>
-              </div>
-              <p className="text-3xl" style={{ fontFamily: "'Orbitron', sans-serif" }}>
-                {formatDuration(duration)}
-              </p>
-            </div>
-          </div>
+          ) : (
+            <button
+              onClick={stopSharing}
+              className="w-full max-w-sm mx-auto py-4 rounded-[var(--radius-xl)] text-white font-medium flex items-center justify-center gap-3 hover:opacity-90 transition-all cursor-pointer"
+              style={{
+                background: 'linear-gradient(135deg, var(--accent-red), var(--accent-pink))',
+                boxShadow: 'var(--shadow-glow-red)',
+              }}
+            >
+              <Square className="w-5 h-5" />
+              <span>Stop Sharing</span>
+            </button>
+          )}
         </div>
 
-        {/* ─── Peers + Fetch Log ───────────────────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Peers */}
-          <div className="bg-[#1a1a2e] border border-[#7c3aed]/20 rounded-xl p-6">
-            <h2 className="text-sm mb-4 tracking-wider" style={{ fontFamily: "'Orbitron', sans-serif", color: '#06b6d4' }}>
-              <Users className="w-4 h-4 inline mr-2" />
-              CONNECTED PEERS
+        {/* Stats with Progress Bars */}
+        {isSharing && (
+          <div className="grid grid-cols-3 gap-3 sm:gap-4">
+            {/* Peers */}
+            <div className="bg-[var(--canvas-elevated)] border border-[var(--hairline)] rounded-[var(--radius-xl)] p-4 sm:p-5 text-center">
+              <div className="w-10 h-10 rounded-[var(--radius-md)] bg-[var(--accent-cyan)]/10 flex items-center justify-center mx-auto mb-3">
+                <Users className="w-5 h-5 text-[var(--accent-cyan)]" />
+              </div>
+              <p className="text-2xl font-bold text-[var(--ink)]" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                {Math.round(animatedPeers)}
+              </p>
+              <p className="text-[11px] text-[var(--muted)] mt-1 uppercase tracking-wider">Peers</p>
+            </div>
+
+            {/* Data */}
+            <div className="bg-[var(--canvas-elevated)] border border-[var(--hairline)] rounded-[var(--radius-xl)] p-4 sm:p-5 text-center">
+              <div className="w-10 h-10 rounded-[var(--radius-md)] bg-[var(--primary)]/10 flex items-center justify-center mx-auto mb-3">
+                <Database className="w-5 h-5 text-[var(--primary)]" />
+              </div>
+              <p className="text-2xl font-bold text-[var(--ink)]" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                {animatedDataMB.toFixed(1)}
+              </p>
+              <p className="text-[11px] text-[var(--muted)] mt-1">MB / {maxDataMB}</p>
+              <div className="mt-3 h-1.5 rounded-full bg-[var(--hairline)] overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-700 ease-out"
+                  style={{
+                    width: `${dataProgress}%`,
+                    background: dataWarn ? 'var(--accent-amber)' : 'var(--primary)',
+                    boxShadow: dataWarn ? '0 0 8px rgba(245,158,11,0.4)' : '0 0 8px rgba(124,58,237,0.4)',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Duration */}
+            <div className="bg-[var(--canvas-elevated)] border border-[var(--hairline)] rounded-[var(--radius-xl)] p-4 sm:p-5 text-center">
+              <div className="w-10 h-10 rounded-[var(--radius-md)] bg-[var(--accent-green)]/10 flex items-center justify-center mx-auto mb-3">
+                <Clock className="w-5 h-5 text-[var(--accent-green)]" />
+              </div>
+              <p className="text-xl font-bold text-[var(--ink)]" style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '1.25rem' }}>
+                {formatDuration(Math.round(animatedDuration))}
+              </p>
+              <p className="text-[11px] text-[var(--muted)] mt-1">Duration</p>
+              <div className="mt-3 h-1.5 rounded-full bg-[var(--hairline)] overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-700 ease-out"
+                  style={{
+                    width: `${durationProgress}%`,
+                    background: durationWarn ? 'var(--accent-amber)' : 'var(--accent-cyan)',
+                    boxShadow: durationWarn ? '0 0 8px rgba(245,158,11,0.4)' : '0 0 8px rgba(6,182,212,0.4)',
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Connected Peers List */}
+        {isSharing && (
+          <div className="bg-[var(--canvas-elevated)] border border-[var(--hairline)] rounded-[var(--radius-xl)] p-5 sm:p-6">
+            <h2 className="text-[11px] text-[var(--muted)] uppercase tracking-widest mb-4" style={{ letterSpacing: '0.1em' }}>
+              Connected Peers ({peers.size})
             </h2>
             {peers.size === 0 ? (
-              <div className="text-center py-10 text-gray-500">
-                <Radio className="w-10 h-10 mx-auto mb-3 opacity-40" />
-                <p className="text-sm">Waiting for receivers to join...</p>
-                <p className="text-xs text-gray-600 mt-1">Share your room code above</p>
+              <div className="text-center py-8">
+                <Wifi className="w-10 h-10 text-[var(--muted-soft)] mx-auto mb-3" />
+                <p className="text-sm text-[var(--muted)]">Waiting for someone to join</p>
+                <p className="text-xs text-[var(--muted-soft)] mt-1">Share your room code with them</p>
               </div>
             ) : (
-              <div className="space-y-2 max-h-72 overflow-y-auto">
+              <div className="space-y-2">
                 {[...peers.entries()].map(([sid, peer]) => (
-                  <div
-                    key={sid}
-                    className="bg-[#0f0f12] rounded-lg p-3 flex items-center justify-between border border-white/5"
-                  >
+                  <div key={sid} className="flex items-center justify-between py-2.5 px-3 rounded-[var(--radius-md)] bg-[var(--canvas)] border border-[var(--hairline)]">
                     <div className="flex items-center gap-3">
-                      <div
-                        className="w-2 h-2 rounded-full bg-[#06b6d4] animate-pulse"
-                        style={{ boxShadow: '0 0 6px #06b6d4' }}
-                      />
-                      <span className="text-sm font-mono text-gray-300">
-                        {sid.slice(0, 12)}...
-                      </span>
+                      <div className="w-2 h-2 rounded-full bg-[var(--accent-green)] animate-pulse" style={{ boxShadow: '0 0 6px var(--accent-green)' }} />
+                      <span className="text-sm text-[var(--body)] font-mono">{sid.slice(0, 12)}...</span>
                     </div>
-                    <span className="text-xs text-gray-500">
-                      {Math.floor((Date.now() - peer.connectedAt) / 1000)}s ago
+                    <span className="text-xs text-[var(--muted)] font-mono">
+                      {Math.floor((Date.now() - peer.connectedAt) / 1000)}s
                     </span>
                   </div>
                 ))}
               </div>
             )}
           </div>
+        )}
 
-          {/* Fetch Requests */}
-          <div className="bg-[#1a1a2e] border border-[#7c3aed]/20 rounded-xl p-6">
-            <h2 className="text-sm mb-4 tracking-wider" style={{ fontFamily: "'Orbitron', sans-serif", color: '#06b6d4' }}>
-              <Globe className="w-4 h-4 inline mr-2" />
-              URL FETCHES
-            </h2>
-            {fetchRequests.length === 0 ? (
-              <div className="text-center py-10 text-gray-500">
-                <Globe className="w-10 h-10 mx-auto mb-3 opacity-40" />
-                <p className="text-sm">No URL requests yet</p>
-                <p className="text-xs text-gray-600 mt-1">Receivers will request URLs here</p>
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-72 overflow-y-auto">
-                {fetchRequests.map((req, i) => (
-                  <div
-                    key={`${req.requestId}-${i}`}
-                    className="bg-[#0f0f12] rounded-lg p-3 border border-white/5"
-                  >
-                    <p className="text-sm text-[#06b6d4] truncate" title={req.url}>
-                      {req.url}
-                    </p>
-                    <p className="text-xs text-gray-600 font-mono mt-1">
-                      {req.requestId.slice(0, 24)}...
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ─── Activity Log ────────────────────────────────────── */}
-        <div className="bg-[#1a1a2e] border border-[#7c3aed]/20 rounded-xl p-6">
-          <h2 className="text-sm mb-4 tracking-wider text-gray-400" style={{ fontFamily: "'Orbitron', sans-serif" }}>
-            ACTIVITY LOG
-          </h2>
-          <div className="bg-[#0f0f12] rounded-lg p-4 max-h-48 overflow-y-auto font-mono text-xs space-y-1 border border-white/5">
+        {/* Activity Log */}
+        <div className="bg-[var(--canvas-elevated)] border border-[var(--hairline)] rounded-[var(--radius-xl)] p-5 sm:p-6">
+          <h2 className="text-[11px] text-[var(--muted)] uppercase tracking-widest mb-4" style={{ letterSpacing: '0.1em' }}>Activity Log</h2>
+          <div className="bg-[var(--canvas)] rounded-[var(--radius-xl)] p-4 max-h-40 overflow-y-auto font-mono text-xs space-y-1.5 border border-[var(--hairline)]" role="log" aria-live="polite">
             {log.length === 0 ? (
-              <p className="text-gray-600 italic">No activity yet. Start sharing to begin.</p>
+              <p className="text-[var(--muted-soft)] italic text-center py-4">No activity yet</p>
             ) : (
               log.map((entry, i) => (
-                <p key={i} className="text-gray-400 leading-relaxed">
-                  {entry}
-                </p>
+                <p key={i} className="text-[var(--muted)] leading-relaxed">{entry}</p>
               ))
             )}
           </div>

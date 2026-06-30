@@ -2,6 +2,8 @@
  * Message protocol definitions for WebSocket communication.
  */
 
+import crypto from 'crypto';
+
 export const ClientMessage = {
   CREATE_ROOM: 'create_room',
   JOIN_ROOM: 'join_room',
