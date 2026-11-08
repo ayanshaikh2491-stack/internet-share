@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "lastUpdated": "2026-11-08T05:20:00.000Z",
+  "agents": {
+    "master-agent": {
+      "status": "active",
+      "task": "GitHub integration setup",
+      "lastActive": "2026-11-08T05:20:00.000Z"
+    }
+  },
+  "shared": {
+    "leads": "OpenBot/Shared/Leads/",
+    "reports": "OpenBot/Shared/Reports/",
+    "data": "OpenBot/Shared/Data/",
+    "content": "OpenBot/Shared/Content/"
+  }
+}

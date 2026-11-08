@@ -1,0 +1,71 @@
+name: OpenBot Agent Runner
+on:
+  schedule:
+    - cron: '0 */4 * * *'    # Every 4 hours
+  workflow_dispatch:
+    inputs:
+      agent:
+        description: 'Agent ID to run'
+        required: false
+        default: 'all'
+      task:
+        description: 'Task description'
+        required: false
+        default: 'status-check'
+  push:
+    paths:
+      - 'OpenBot/Shared/agent-state.json'
+      - 'OpenBot/Shared/.agent-tasks/**'
+
+jobs:
+  run-agents:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - agent: leads-research
+            script: "node OpenBot/Shared/state-sync.js leads-research pull && echo 'Research run complete'"
+          - agent: leads-outreach
+            script: "node OpenBot/Shared/state-sync.js leads-outreach pull && echo 'Outreach run complete'"
+          - agent: leads-followup
+            script: "node OpenBot/Shared/state-sync.js leads-followup pull && echo 'Followup run complete'"
+          - agent: sm-research
+            script: "node OpenBot/Shared/state-sync.js sm-research pull && echo 'SM research complete'"
+          - agent: sm-content
+            script: "node OpenBot/Shared/state-sync.js sm-content pull && echo 'SM content complete'"
+          - agent: ads-research
+            script: "node OpenBot/Shared/state-sync.js ads-research pull && echo 'Ads research complete'"
+          - agent: ads-copy
+            script: "node OpenBot/Shared/state-sync.js ads-copy pull && echo 'Ads copy complete'"
+          - agent: email-auto
+            script: "node OpenBot/Shared/state-sync.js email-auto pull && echo 'Email auto complete'"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Pull latest state
+        run: |
+          git config user.name "OpenBot Agent"
+          git config user.email "agent@openbot.local"
+          node OpenBot/Shared/state-sync.js ${{ matrix.agent }} pull
+
+      - name: Run agent task
+        run: |
+          echo "Running ${{ matrix.agent }}: ${{ github.event.inputs.task }}"
+          ${{ matrix.script }}
+
+      - name: Push state back
+        if: always()
+        run: |
+          git config user.name "OpenBot Agent"
+          git config user.email "agent@openbot.local"
+          node OpenBot/Shared/state-sync.js ${{ matrix.agent }} push "State update from ${{ matrix.agent }} (GitHub Actions)"
